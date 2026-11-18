@@ -18,7 +18,7 @@ Everything stored in LibreHardwareMonitor's settings file, for example:
 
 Not imported, because it is not part of the settings file:
 
-- **Autostart** – enable it again in K26K under *Options → Run On Windows Startup*.
+- **Autostart**: enable it again in K26K under *Options → Run On Windows Startup*.
   K26K uses its own autostart entry, so the autostart of LibreHardwareMonitor stays untouched.
 
 Fixed plot axis ranges saved by LibreHardwareMonitor are ignored by K26K v1.1 and later,
@@ -85,4 +85,4 @@ Delete `K26KHardwareMonitor.config` and rename `K26KHardwareMonitor.config.bak` 
 
 ## License
 
-AGPL-3.0-or-later, like K26K Hardware Monitor – see [LICENSE](../LICENSE).
+AGPL-3.0-or-later, like K26K Hardware Monitor. See [LICENSE](../LICENSE).
