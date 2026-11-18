@@ -39,6 +39,8 @@ of a phone, tablet or another PC – with the same settings you configured in th
    ```
 5. Open `http://<PC-IP>:8085/` on your smartphone.
 
+To take over all settings of an installed LibreHardwareMonitor, use the [Libre Settings Importer](Libre-Settings-Importer/README.md).
+
 Optionally, set a user name and password under **Options → Remote Web Server → Authentication**.
 Note: the connection is unencrypted HTTP and only meant for your own network.
 
