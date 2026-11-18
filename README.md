@@ -2,7 +2,7 @@
 
 K26K Hardware Monitor is an extended version of [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor).
 It adds a **new web interface optimized for smartphones**: all sensors and charts can be viewed in the browser
-of a phone, tablet or another PC – with the same settings you configured in the desktop app.
+of a phone, tablet or another PC, with the same settings you configured in the desktop app.
 
 ## What's new?
 
@@ -24,8 +24,8 @@ of a phone, tablet or another PC – with the same settings you configured in th
   - Expanded state of hardware and sensor groups
   - Update interval
 - **New JSON API** (read-only):
-  - `GET /api/state` – sensor tree, current values and mirrored settings
-  - `GET /api/history?ids=<id1>,<id2>&span=<seconds>&points=<count>` – value history, reduced to `points` points
+  - `GET /api/state`: sensor tree, current values and mirrored settings
+  - `GET /api/history?ids=<id1>,<id2>&span=<seconds>&points=<count>`: value history, reduced to `points` points
 - The previous web page is still available as `classic.html`; `data.json`, `/Sensor` and `/metrics` work as before.
 
 ## Usage
