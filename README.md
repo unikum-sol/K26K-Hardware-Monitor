@@ -1,80 +1,83 @@
 # K26K Hardware Monitor
 
-K26K Hardware Monitor ist eine erweiterte Version von [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor).
-Sie bringt eine **neue, für Smartphones optimierte Weboberfläche** mit: Alle Sensoren und Kurven lassen sich im Browser
-auf dem Handy, Tablet oder einem anderen PC ansehen – mit denselben Einstellungen, die in der Desktop-App eingestellt sind.
+K26K Hardware Monitor is an extended version of [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor).
+It adds a **new web interface optimized for smartphones**: all sensors and charts can be viewed in the browser
+of a phone, tablet or another PC – with the same settings you configured in the desktop app.
 
-## Was ist neu?
+## What's new?
 
-- **Mobile Weboberfläche** unter `http://<PC-IP>:<Port>/` (Standard-Port 8085)
-  - Karten pro Hardware, Gruppen pro Sensortyp, große, gut lesbare Werte und Lastbalken
-  - **Plot-Karte** mit genau den Kurven, die in der Desktop-App für den Plot ausgewählt sind
-  - Antippen eines Sensors öffnet **seine eigene Kurve**; Antippen/Ziehen in einer Kurve zeigt die Werte zu diesem Zeitpunkt
-  - Zeitraum der Kurven wählbar (1 min bis 24 h) oder wie im Desktop-Plot
-  - Suche/Filter, Auf-/Zuklappen, lässt sich als App auf den Startbildschirm legen
-- **Gespiegelte Desktop-Einstellungen** (live, ohne Neuladen):
-  - Design (Light/Dark/Black/Auto) inkl. Plot-Farbpalette
-  - ausgeblendete Sensoren und „Show Hidden Sensors“
-  - umbenannte Sensoren und Hardware
-  - Spalten Value/Min/Max
-  - Plot an/aus, ausgewählte Plot-Sensoren und ihre Farben, „Stacked Axes“, sichtbarer Zeitraum, Linienstärke
-  - Temperatureinheit °C/°F
-  - Aufklapp-Zustand der Hardware und Sensorgruppen
-  - Aktualisierungsintervall
-- **Neue JSON-API** (nur lesend):
-  - `GET /api/state` – Sensorbaum, aktuelle Werte und gespiegelte Einstellungen
-  - `GET /api/history?ids=<id1>,<id2>&span=<Sekunden>&points=<Anzahl>` – Werteverlauf, auf `points` Punkte verdichtet
-- Die bisherige Weboberfläche bleibt als `classic.html` erhalten; `data.json`, `/Sensor` und `/metrics` funktionieren unverändert.
+- **Mobile web interface** at `http://<PC-IP>:<port>/` (default port 8085)
+  - One card per hardware item with its key values in the header, sensor groups, large readable values and load bars
+  - Quick-jump bar (CPU, GPU, storage, network …) for systems with many devices
+  - **History card** with exactly the curves selected for the plot in the desktop app
+  - Tap a sensor to open **its own chart**; tap or drag inside a chart to read the values at that moment
+  - Chart time span from 1 min to 24 h, or the same as the desktop plot
+  - Search/filter, expand/collapse, can be added to the home screen as an app
+  - Light and dark mode derived from the desktop theme, WCAG-oriented contrast, line styles in addition to colors
+- **Mirrored desktop settings** (live, no reload needed):
+  - Theme (Light/Dark/Black/Auto) including the plot color palette
+  - Hidden sensors and "Show Hidden Sensors"
+  - Renamed sensors and hardware
+  - Value/Min/Max columns
+  - Plot on/off, selected plot sensors and their colors, "Stacked Axes", visible time span, line thickness
+  - Temperature unit °C/°F
+  - Expanded state of hardware and sensor groups
+  - Update interval
+- **New JSON API** (read-only):
+  - `GET /api/state` – sensor tree, current values and mirrored settings
+  - `GET /api/history?ids=<id1>,<id2>&span=<seconds>&points=<count>` – value history, reduced to `points` points
+- The previous web page is still available as `classic.html`; `data.json`, `/Sensor` and `/metrics` work as before.
 
-## Benutzung
+## Usage
 
-1. K26K Hardware Monitor **als Administrator** starten (wie LibreHardwareMonitor).
-2. Unter **Options → Remote Web Server → Interface/Port** die IP-Adresse des PCs im Heimnetz wählen (nicht `127.0.0.1`) und den Port festlegen.
-3. **Options → Remote Web Server → Run** aktivieren.
-4. In der Windows-Firewall den Port (Standard 8085, TCP) für das private Netzwerk freigeben, z. B. in einer Administrator-PowerShell:
+1. Start K26K Hardware Monitor **as administrator** (like LibreHardwareMonitor).
+2. Under **Options → Remote Web Server → Interface/Port**, select the PC's IP address in your local network (not `127.0.0.1`) and set the port.
+3. Enable **Options → Remote Web Server → Run**.
+4. Allow the port (default 8085, TCP) in the Windows firewall for private networks, e.g. in an administrator PowerShell:
    ```powershell
    New-NetFirewallRule -DisplayName "K26K Hardware Monitor" -Direction Inbound -Protocol TCP -LocalPort 8085 -Action Allow -Profile Private
    ```
-5. Auf dem Smartphone `http://<PC-IP>:8085/` öffnen.
+5. Open `http://<PC-IP>:8085/` on your smartphone.
 
-Optional lässt sich unter **Options → Remote Web Server → Authentication** ein Benutzername/Passwort setzen.
-Achtung: Die Verbindung ist unverschlüsseltes HTTP und nur für das eigene Netzwerk gedacht.
+Optionally, set a user name and password under **Options → Remote Web Server → Authentication**.
+Note: the connection is unencrypted HTTP and only meant for your own network.
 
-## Bauen
+## Building
 
-Benötigt das .NET SDK in der Version, die die Projektdateien verlangen (aktuell .NET 11, siehe `.github/workflows`).
+Requires the .NET SDK version the project files target (currently .NET 11, see `.github/workflows`).
 
 ```powershell
 dotnet build LibreHardwareMonitor.Windows.Forms\LibreHardwareMonitor.Windows.Forms.csproj -c Release -p:Platform=x64
 ```
 
-Die neue Weboberfläche liegt in `LibreHardwareMonitor.Windows.Forms/Resources/Web/` (`index.html`, `app.js`, `app.css`),
-die API in `LibreHardwareMonitor.Windows.Forms/Utilities/WebApi.cs`.
+The new web interface lives in `LibreHardwareMonitor.Windows.Forms/Resources/Web/` (`index.html`, `app.js`, `app.css`),
+the API in `LibreHardwareMonitor.Windows.Forms/Utilities/WebApi.cs`.
+How the design was reviewed and refined is documented in [docs/design-council](docs/design-council/README.md).
 
-## Updates von LibreHardwareMonitor übernehmen
+## Pulling in updates from LibreHardwareMonitor
 
-Dieses Repository ist ein Fork. Änderungen des Originals lassen sich so übernehmen:
+This repository is a fork. Changes from the original project can be merged like this:
 
 ```powershell
 git fetch upstream
 git merge upstream/master
 ```
 
-## Lizenz
+## License
 
-- Das Gesamtwerk K26K Hardware Monitor wird unter der **GNU Affero General Public License v3.0** weitergegeben, siehe [LICENSE](LICENSE).
-- Der Code von LibreHardwareMonitor steht unter der **Mozilla Public License 2.0**, siehe [LICENSE-MPL-2.0](LICENSE-MPL-2.0).
-  Die MPL-Hinweise in diesen Dateien bleiben erhalten; die MPL 2.0 erlaubt nach Abschnitt 3.3 die Weitergabe als Teil eines
-  größeren Werks unter der (A)GPL.
-- Neue Dateien von K26K (`WebApi.cs`, `Resources/Web/index.html`, `app.js`, `app.css`, `manifest.webmanifest`, `icon.svg`)
-  stehen unter der AGPL-3.0-or-later.
-- Weitere Drittanbieter-Hinweise: [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+- K26K Hardware Monitor as a whole is distributed under the **GNU Affero General Public License v3.0**, see [LICENSE](LICENSE).
+- The LibreHardwareMonitor code is licensed under the **Mozilla Public License 2.0**, see [LICENSE-MPL-2.0](LICENSE-MPL-2.0).
+  The MPL notices in those files are kept; section 3.3 of the MPL 2.0 allows distributing them as part of a
+  larger work under the (A)GPL.
+- New K26K files (`WebApi.cs`, `Resources/Web/index.html`, `app.js`, `app.css`, `manifest.webmanifest`, `icon.svg`)
+  are licensed under AGPL-3.0-or-later.
+- Further third-party notices: [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
 
-Die Weboberfläche verlinkt den Quellcode (AGPL Abschnitt 13).
+The web interface links to the source code (AGPL section 13).
 
 ---
 
-## Original-README von LibreHardwareMonitor
+## Original LibreHardwareMonitor README
 [![GitHub license](https://img.shields.io/github/license/LibreHardwareMonitor/LibreHardwareMonitor?label=License)](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/master/LICENSE)
 
 [![NuGet](https://img.shields.io/nuget/v/LibreHardwareMonitorLib?label=NuGet&logo=nuget&logoColor=white)](https://www.nuget.org/packages/LibreHardwareMonitorLib/)

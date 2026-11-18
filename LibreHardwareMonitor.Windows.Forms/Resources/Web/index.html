@@ -8,7 +8,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#1e1e1e">
+  <meta name="theme-color" content="#17181a">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -21,41 +21,51 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="title">
-      <span class="status" id="status" title="Verbindung"></span>
+    <div class="topbar-inner">
       <div class="title-text">
         <h1 id="machine">K26K Hardware Monitor</h1>
-        <div class="subtitle" id="subtitle">Verbinde …</div>
+        <div class="subtitle">
+          <span class="status" id="status">Verbinde</span>
+          <span id="subtitle"></span>
+        </div>
       </div>
+      <button class="icon-btn" id="menuBtn" type="button" aria-label="Ansicht und Suche" aria-expanded="false" aria-controls="menu">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+      </button>
     </div>
-    <button class="icon-btn" id="menuBtn" aria-label="Menü" aria-expanded="false">
-      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
-    </button>
+    <nav class="jumpbar" id="jumpbar" aria-label="Zu Hardware springen"></nav>
   </header>
 
-  <div class="menu" id="menu" hidden>
-    <label class="menu-row"><span>Suche</span><input type="search" id="filter" placeholder="Sensor filtern …" autocomplete="off"></label>
-    <div class="menu-row">
-      <span>Zeitraum der Kurven</span>
-      <div class="chips" id="spanChips"></div>
+  <section class="panel" id="menu" hidden aria-label="Ansicht">
+    <div class="field">
+      <label class="field-label" for="filter">Suche</label>
+      <div class="search">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+        <input type="search" id="filter" placeholder="Sensor oder Hardware" autocomplete="off">
+      </div>
     </div>
-    <div class="menu-row buttons">
-      <button class="btn" id="expandAll">Alle aufklappen</button>
-      <button class="btn" id="collapseAll">Alle zuklappen</button>
-      <button class="btn" id="resetLocal">Wie am Desktop</button>
+    <div class="field">
+      <span class="field-label" id="spanLabel">Zeitraum der Kurven</span>
+      <div class="segmented" id="spanChips" role="group" aria-labelledby="spanLabel"></div>
     </div>
-    <div class="menu-row info" id="mirrorInfo"></div>
-    <div class="menu-row links">
+    <div class="actions">
+      <button class="btn" id="expandAll" type="button">Alle aufklappen</button>
+      <button class="btn" id="collapseAll" type="button">Alle zuklappen</button>
+      <button class="btn" id="resetLocal" type="button">Wie am Desktop</button>
+    </div>
+    <p class="note" id="mirrorInfo"></p>
+    <div class="links">
       <a href="classic.html">Klassische Ansicht</a>
       <a href="data.json" target="_blank" rel="noopener">data.json</a>
       <a href="https://github.com/unikum-sol/K26K-Hardware-Monitor" target="_blank" rel="noopener">Quellcode (AGPL-3.0)</a>
     </div>
-  </div>
+  </section>
 
   <main id="main">
     <section class="card plot-card" id="plotCard" hidden>
       <div class="card-head static">
-        <span class="card-title">Plot</span>
+        <span class="tile"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M5 15l4-5 4 3 6-7"/></svg></span>
+        <span class="head-text"><span class="card-title">Verlauf</span></span>
         <span class="card-meta" id="plotMeta"></span>
       </div>
       <div id="plotCharts"></div>
