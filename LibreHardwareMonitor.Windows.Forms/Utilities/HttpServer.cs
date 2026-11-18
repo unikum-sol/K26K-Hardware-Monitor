@@ -27,6 +27,9 @@ namespace LibreHardwareMonitor.Windows.Forms.Utilities;
 
 public class HttpServer
 {
+    // K26K: root namespace of the embedded resources (RootNamespace in the project file).
+    private const string ResourceNamespace = "LibreHardwareMonitor.Windows.Forms";
+
     private readonly HttpListener _listener;
     private readonly Node _root;
     private readonly IElement _rootElement;
@@ -515,7 +518,8 @@ public class HttpServer
     private async Task ServeResourceFileAsync(HttpListenerResponse response, string name, string ext)
     {
         // resource names do not support the hyphen
-        name = Assembly.GetExecutingAssembly().GetName().Name + ".Resources." +
+        // K26K: the assembly is named K26KHardwareMonitor, but the resources keep the project's root namespace.
+        name = ResourceNamespace + ".Resources." +
                name.Replace("custom-theme", "custom_theme");
 
         string[] names = Assembly.GetExecutingAssembly().GetManifestResourceNames();
@@ -556,7 +560,7 @@ public class HttpServer
 
     private async Task ServeResourceImageAsync(HttpListenerResponse response, string name)
     {
-        name = Assembly.GetExecutingAssembly().GetName().Name + ".Resources." + name;
+        name = ResourceNamespace + ".Resources." + name;
 
         string[] names = Assembly.GetExecutingAssembly().GetManifestResourceNames();
 

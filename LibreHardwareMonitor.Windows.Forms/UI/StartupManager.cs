@@ -19,6 +19,9 @@ namespace LibreHardwareMonitor.Windows.Forms.UI;
 public class StartupManager
 {
     private const string RegistryPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+
+    // K26K: own task/registry name, so the autostart of an installed LibreHardwareMonitor is not changed.
+    private const string AutostartName = "K26KHardwareMonitor";
     private bool _startup;
 
     public StartupManager()
@@ -52,7 +55,7 @@ public class StartupManager
             {
                 using (RegistryKey registryKey = Registry.CurrentUser.OpenSubKey(RegistryPath))
                 {
-                    string value = (string)registryKey?.GetValue(nameof(LibreHardwareMonitor));
+                    string value = (string)registryKey?.GetValue(AutostartName);
 
                     if (value != null)
                         _startup = value == Application.ExecutablePath;
@@ -131,7 +134,7 @@ public class StartupManager
     {
         try
         {
-            return TaskService.Instance.AllTasks.FirstOrDefault(x => x.Name.Equals(nameof(LibreHardwareMonitor), StringComparison.OrdinalIgnoreCase));
+            return TaskService.Instance.AllTasks.FirstOrDefault(x => x.Name.Equals(AutostartName, StringComparison.OrdinalIgnoreCase));
         }
         catch
         {
@@ -157,7 +160,7 @@ public class StartupManager
 
         taskDefinition.Actions.Add(new ExecAction(Application.ExecutablePath, "", Path.GetDirectoryName(Application.ExecutablePath)));
 
-        TaskService.Instance.RootFolder.RegisterTaskDefinition(nameof(LibreHardwareMonitor), taskDefinition);
+        TaskService.Instance.RootFolder.RegisterTaskDefinition(AutostartName, taskDefinition);
     }
 
     private static void DeleteTask()
@@ -169,12 +172,12 @@ public class StartupManager
     private static void CreateRegistryKey()
     {
         RegistryKey registryKey = Registry.CurrentUser.CreateSubKey(RegistryPath);
-        registryKey?.SetValue(nameof(LibreHardwareMonitor), Application.ExecutablePath);
+        registryKey?.SetValue(AutostartName, Application.ExecutablePath);
     }
 
     private static void DeleteRegistryKey()
     {
         RegistryKey registryKey = Registry.CurrentUser.CreateSubKey(RegistryPath);
-        registryKey?.DeleteValue(nameof(LibreHardwareMonitor));
+        registryKey?.DeleteValue(AutostartName);
     }
 }
