@@ -655,6 +655,12 @@
     for (const se of series) {
       if (!se.pts.length) continue;
       const g = groups.get(opts.multiAxis ? se.unit : '_');
+      if (se.pts.length === 1) {
+        // no history yet: show the live value as a dot at the right edge
+        ctx.fillStyle = se.color;
+        ctx.beginPath(); ctx.arc(x(se.pts[0][0]) - stroke * 2, y(g, se.pts[0][1]), stroke + 2, 0, Math.PI * 2); ctx.fill();
+        continue;
+      }
       ctx.strokeStyle = se.color;
       ctx.lineWidth = stroke;
       ctx.beginPath();

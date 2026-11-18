@@ -91,9 +91,6 @@ h1 {
 }
 
 .menu {
-  position: sticky;
-  top: 61px;
-  z-index: 9;
   padding: 12px 16px;
   background: var(--card);
   border-bottom: 1px solid var(--strong);

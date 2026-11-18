@@ -279,15 +279,27 @@ public sealed class WebApi
             count = 0;
         }
 
+        float? before = null;
+
         foreach (SensorValue value in values)
         {
             double ago = (now - value.Time).TotalSeconds;
-            if (ago > span || float.IsNaN(value.Value))
-                continue;
-
             float? display = ToDisplayNumber(type, value.Value, fahrenheit);
             if (!display.HasValue || float.IsNaN(display.Value) || float.IsInfinity(display.Value))
                 continue;
+
+            if (ago > span)
+            {
+                // remember the last value before the window, so the curve starts at the left edge
+                before = display;
+                continue;
+            }
+
+            if (before.HasValue)
+            {
+                result.Add(new[] { (double)span, Math.Round((double)before.Value, 4) });
+                before = null;
+            }
 
             int b = (int)((span - Math.Max(0, ago)) / bucketSize);
             if (b != bucket)
