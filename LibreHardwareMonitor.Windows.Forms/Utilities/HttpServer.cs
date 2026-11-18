@@ -70,6 +70,9 @@ public class HttpServer
 
     public bool AuthEnabled { get; set; }
 
+    /// <summary>K26K: endpoints under /api/ for the mobile web interface.</summary>
+    public WebApi WebApi { get; set; }
+
     public string ListenerIp { get; set; }
 
     public int ListenerPort { get; set; }
@@ -425,6 +428,13 @@ public class HttpServer
                     {
                         string requestedFile = request.RawUrl.Substring(1);
 
+                        // K26K: JSON API for the mobile web interface.
+                        if (WebApi != null && WebApi.IsApiRequest(requestedFile))
+                        {
+                            await WebApi.HandleAsync(request, context.Response);
+                            break;
+                        }
+
                         if (requestedFile == "data.json")
                         {
                             await SendJsonAsync(context.Response, request);
@@ -462,7 +472,8 @@ public class HttpServer
                             return;
                         }
 
-                        // default file to be served
+                        // default file to be served (K26K: ignore the query string when looking up files)
+                        requestedFile = request.Url.AbsolutePath.TrimStart('/');
                         if (string.IsNullOrEmpty(requestedFile))
                             requestedFile = "index.html";
 
@@ -905,14 +916,17 @@ public class HttpServer
         switch (extension)
         {
             case ".avi": return "video/x-msvideo";
-            case ".css": return "text/css";
+            case ".css": return "text/css; charset=utf-8";
+            case ".svg": return "image/svg+xml";
+            case ".json": return "application/json";
+            case ".webmanifest": return "application/manifest+json";
             case ".doc": return "application/msword";
             case ".gif": return "image/gif";
             case ".htm":
             case ".html": return "text/html";
             case ".jpg":
             case ".jpeg": return "image/jpeg";
-            case ".js": return "application/x-javascript";
+            case ".js": return "text/javascript; charset=utf-8";
             case ".mp3": return "audio/mpeg";
             case ".png": return "image/png";
             case ".pdf": return "application/pdf";

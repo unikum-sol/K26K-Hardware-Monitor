@@ -323,6 +323,22 @@ public sealed partial class MainForm : Form
                                 _settings.GetValue("authenticationUserName", ""),
                                 _settings.GetValue("authenticationPassword", ""));
 
+        // K26K: the mobile web interface mirrors these desktop settings.
+        Server.WebApi = new WebApi(_root, new WebUiContext
+        {
+            ShowHiddenSensors = () => showHiddenSensors.Value,
+            ShowValueColumn = () => showValue.Value,
+            ShowMinColumn = () => showMin.Value,
+            ShowMaxColumn = () => showMax.Value,
+            PlotVisible = () => _showPlot?.Value ?? false,
+            StackedAxes = () => _plotPanel.StackedAxes,
+            PlotTimeSpanSeconds = () => _plotPanel.VisibleTimeSpanSeconds,
+            PlotStrokeThickness = () => _plotStrokeThickness,
+            UpdateIntervalMs = () => timer.Interval,
+            PlotColors = () => _sensorPlotColors,
+            UnitManager = _unitManager
+        });
+
         if (Server.PlatformNotSupported)
         {
             webMenuItemSeparator.Visible = false;

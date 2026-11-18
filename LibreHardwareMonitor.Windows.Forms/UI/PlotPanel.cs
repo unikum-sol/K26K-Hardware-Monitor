@@ -369,6 +369,12 @@ public class PlotPanel : UserControl
         InvalidatePlot();
     }
 
+    // K26K: read by the web interface to mirror the desktop plot.
+    public bool StackedAxes => _stackedAxes?.Value ?? true;
+
+    // K26K: visible time span of the plot in seconds (NaN while the plot has not been drawn yet).
+    public double VisibleTimeSpanSeconds => _timeAxis.ActualMaximum - Math.Max(0, _timeAxis.ActualMinimum);
+
     public void UpdateStrokeThickness(double strokeThickness)
     {
         foreach (LineSeries series in _model.Series)
