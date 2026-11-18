@@ -29,6 +29,16 @@ public class PlotPanel : UserControl
     private readonly TimeSpanAxis _timeAxis = new TimeSpanAxis();
     private readonly SortedDictionary<SensorType, LinearAxis> _axes = new SortedDictionary<SensorType, LinearAxis>();
     private readonly Dictionary<SensorType, LineAnnotation> _annotations = new Dictionary<SensorType, LineAnnotation>();
+
+    // K26K: value axes the user zoomed or panned. Only their ranges are saved; all others autoscale.
+    private readonly HashSet<SensorType> _userZoomedAxes = new HashSet<SensorType>();
+
+    // K26K: limits that keep every axis range finite. Infinite ranges made GDI+ throw an OverflowException.
+    private const double AxisLimit = 1e15;
+
+    // K26K: version 2 only saves ranges of axes the user zoomed. Older versions saved every range,
+    // which froze the axes and stored -Infinity for hidden ones, so those values are ignored once.
+    private const int RangesVersion = 2;
     private UserOption _stackedAxes;
     private UserOption _showAxesLabels;
     private UserOption _timeAxisEnableZoom;
@@ -105,13 +115,55 @@ public class PlotPanel : UserControl
 
     public void SetCurrentSettings()
     {
-        foreach (LinearAxis axis in _axes.Values)
+        // K26K: save a value axis range only when the user zoomed or panned that axis;
+        // otherwise remove it, so the axis autoscales again on the next start.
+        foreach (KeyValuePair<SensorType, LinearAxis> pair in _axes)
         {
-            _settings.SetValue("plotPanel.Min" + axis.Key, (float)axis.ActualMinimum);
-            _settings.SetValue("plotPanel.Max" + axis.Key, (float)axis.ActualMaximum);
+            LinearAxis axis = pair.Value;
+            if (_userZoomedAxes.Contains(pair.Key) && axis.IsAxisVisible && IsValidRange(axis.ActualMinimum, axis.ActualMaximum))
+            {
+                _settings.SetValue("plotPanel.Min" + axis.Key, (float)axis.ActualMinimum);
+                _settings.SetValue("plotPanel.Max" + axis.Key, (float)axis.ActualMaximum);
+            }
+            else
+            {
+                _settings.Remove("plotPanel.Min" + axis.Key);
+                _settings.Remove("plotPanel.Max" + axis.Key);
+            }
         }
-        _settings.SetValue("plotPanel.MinTimeSpan", (float)_timeAxis.ActualMinimum);
-        _settings.SetValue("plotPanel.MaxTimeSpan", (float)_timeAxis.ActualMaximum);
+
+        _settings.SetValue("plotPanel.RangesVersion", RangesVersion);
+
+        if (IsValidRange(_timeAxis.ActualMinimum, _timeAxis.ActualMaximum))
+        {
+            _settings.SetValue("plotPanel.MinTimeSpan", (float)_timeAxis.ActualMinimum);
+            _settings.SetValue("plotPanel.MaxTimeSpan", (float)_timeAxis.ActualMaximum);
+        }
+    }
+
+    // K26K: a range OxyPlot and GDI+ can draw.
+    private static bool IsValidRange(double min, double max)
+    {
+        return !double.IsNaN(min) && !double.IsNaN(max) &&
+               !double.IsInfinity(min) && !double.IsInfinity(max) &&
+               min < max && Math.Abs(min) < AxisLimit && Math.Abs(max) < AxisLimit;
+    }
+
+    // K26K: puts axes whose range became invalid back to autoscaling before they are drawn.
+    private void ResetInvalidAxes()
+    {
+        foreach (KeyValuePair<SensorType, LinearAxis> pair in _axes)
+        {
+            LinearAxis axis = pair.Value;
+            if (axis.IsAxisVisible && !IsValidRange(axis.ActualMinimum, axis.ActualMaximum))
+            {
+                axis.Reset();
+                _userZoomedAxes.Remove(pair.Key);
+            }
+        }
+
+        if (!IsValidRange(_timeAxis.ActualMinimum, _timeAxis.ActualMaximum))
+            _timeAxis.Reset();
     }
 
     private ContextMenuStrip CreateMenu()
@@ -184,11 +236,7 @@ public class PlotPanel : UserControl
         menu.Items.Add(yAxesMenuItem);
 
         _yAxesEnableZoom = new UserOption("yAxesEnableZoom", true, yAxesMenuItems[0], _settings);
-        _yAxesEnableZoom.Changed += (sender, e) =>
-        {
-            foreach (LinearAxis axis in _axes.Values)
-                axis.IsZoomEnabled = _yAxesEnableZoom.Value;
-        };
+        _yAxesEnableZoom.Changed += (sender, e) => UpdateAxesInteraction();
 
         return menu;
     }
@@ -250,6 +298,8 @@ public class PlotPanel : UserControl
                 AxislineStyle = LineStyle.Solid,
                 Title = typeName,
                 Key = typeName,
+                AbsoluteMinimum = -AxisLimit,
+                AbsoluteMaximum = AxisLimit,
             };
 
             var annotation = new LineAnnotation
@@ -265,17 +315,30 @@ public class PlotPanel : UserControl
 
 #pragma warning disable CS0618 //obsolete warning
 
-            axis.AxisChanged += (sender, args) => annotation.Y = axis.ActualMinimum;
+            axis.AxisChanged += (sender, args) =>
+            {
+                annotation.Y = axis.ActualMinimum;
+
+                // K26K: remember whether the user zoomed or panned this axis, or put it back to autoscaling.
+                if (args.ChangeType == AxisChangeTypes.Reset)
+                    _userZoomedAxes.Remove(type);
+                else
+                    _userZoomedAxes.Add(type);
+            };
             axis.TransformChanged += (sender, args) => annotation.Y = axis.ActualMinimum;
 
 #pragma warning restore CS0618 //obsolete warning
 
-            float min = _settings.GetValue("plotPanel.Min" + axis.Key, float.NaN);
-            float max = _settings.GetValue("plotPanel.Max" + axis.Key, float.NaN);
+            // K26K: ranges saved by older versions froze the axes, so they are only used from version 2 on.
+            if (_settings.GetValue("plotPanel.RangesVersion", 0) >= RangesVersion)
+            {
+                float min = _settings.GetValue("plotPanel.Min" + axis.Key, float.NaN);
+                float max = _settings.GetValue("plotPanel.Max" + axis.Key, float.NaN);
 
-            // Skip unset and broken ranges (e.g. Infinity saved after zooming out too far), as OxyPlot can't draw them.
-            if (min < max && !float.IsInfinity(min) && !float.IsInfinity(max))
-                axis.Zoom(min, max);
+                // Skip unset and broken ranges (e.g. Infinity saved after zooming out too far), as OxyPlot can't draw them.
+                if (IsValidRange(min, max))
+                    axis.Zoom(min, max);
+            }
 
             if (units.ContainsKey(type))
                 axis.Unit = units[type];
@@ -338,6 +401,10 @@ public class PlotPanel : UserControl
                 displayedValue = value.Value;
             }
 
+            // K26K: an infinite value would stretch the axis to infinity; draw it as a gap instead.
+            if (float.IsInfinity(displayedValue))
+                displayedValue = float.NaN;
+
             return new DataPoint((_now - value.Time).TotalSeconds, displayedValue);
         }
 
@@ -365,8 +432,21 @@ public class PlotPanel : UserControl
             axis.IsAxisVisible = types.Contains(type);
         }
 
+        UpdateAxesInteraction();
         UpdateAxesPosition();
         InvalidatePlot();
+    }
+
+    // K26K: hidden axes have no height on screen. Zooming or panning them divided by zero and set
+    // their range to -Infinity, which crashed the plot as soon as such an axis became visible.
+    // So only visible axes can be zoomed or panned.
+    private void UpdateAxesInteraction()
+    {
+        foreach (LinearAxis axis in _axes.Values)
+        {
+            axis.IsZoomEnabled = axis.IsAxisVisible && (_yAxesEnableZoom?.Value ?? true);
+            axis.IsPanEnabled = axis.IsAxisVisible;
+        }
     }
 
     // K26K: read by the web interface to mirror the desktop plot.
@@ -455,6 +535,8 @@ public class PlotPanel : UserControl
                 var annotation = _annotations[pair.Key];
                 annotation.Y = axis.ActualMaximum;
             }
+
+            ResetInvalidAxes();
         }
 
         _plot?.InvalidatePlot(true);
@@ -472,7 +554,12 @@ public class PlotPanel : UserControl
 
     public void AutoscaleAllYAxes()
     {
+        // K26K: Zoom() is ignored while "Enable Zoom" is off, so "Autoscale All" did nothing then.
+        // Reset() always returns an axis to autoscaling.
         foreach (LinearAxis axis in _axes.Values)
-            axis.Zoom(double.NaN, double.NaN);
+            axis.Reset();
+
+        _userZoomedAxes.Clear();
+        InvalidatePlot();
     }
 }
