@@ -14,6 +14,18 @@ of a phone, tablet or another PC, with the same settings you configured in the d
   - Chart time span from 1 min to 24 h, or the same as the desktop plot
   - Search/filter, expand/collapse, can be added to the home screen as an app
   - Light and dark mode derived from the desktop theme, WCAG-oriented contrast, line styles in addition to colors
+
+  <p>
+    <img src="docs/images/webui-mobile-dark.png" alt="Web interface on a phone in dark mode: history card with load, power and temperature charts" width="260">
+    &nbsp;
+    <img src="docs/images/webui-mobile-light.png" alt="Web interface on a phone in light mode: CPU card with temperatures, load bars, clocks and power" width="260">
+  </p>
+  <p>
+    <img src="docs/images/webui-desktop-dark.png" alt="Web interface in a desktop browser in dark mode" width="800">
+  </p>
+
+  <sub>Screenshots with sample data: phone in dark and light mode, desktop browser in dark mode.</sub>
+
 - **Mirrored desktop settings** (live, no reload needed):
   - Theme (Light/Dark/Black/Auto) including the plot color palette
   - Hidden sensors and "Show Hidden Sensors"
