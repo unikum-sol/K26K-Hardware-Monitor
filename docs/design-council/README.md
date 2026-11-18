@@ -112,3 +112,28 @@ Measured contrast of the derived tokens (WCAG):
 - Min/Max stays at 12 px with 5.8:1 contrast: M1 asked for smaller and fainter text, M3 for at least 12 px and 4.5:1;
   accessibility wins here.
 - A theme change on the desktop now re-renders the page, so dots and display colors follow immediately.
+
+## Round 3 – scores (final)
+
+| M1 | M2 | M3 |
+| :-: | :-: | :-: |
+| **9** | **9** | **9** |
+
+All three members approve the design; none of them named a remaining blocker.
+
+**Score history**
+
+| Round | M1 Visual | M2 UX & Data-Viz | M3 Accessibility |
+| --- | :-: | :-: | :-: |
+| 0 – starting point | 4 | 5 | 6 |
+| 1 | 7 | 8 | 8 |
+| 2 | 8 | 9 | 9 |
+| 3 | 9 | 9 | 9 |
+
+**Optional suggestions left open (not blockers)**
+
+- In light mode the darkened yellow (GPU Core) looks olive; next to the green curve it is mainly told apart by the dash pattern.
+  A check with a deuteranopia simulation is still open.
+- Not verifiable with screenshots and not tested yet: crosshair dragging on a real iOS/Android device,
+  keyboard focus rings and screen reader output (`aria-expanded`, `aria-label` of the warning symbol).
+- Scroll-spy and render performance with 50+ hardware cards on real data.
