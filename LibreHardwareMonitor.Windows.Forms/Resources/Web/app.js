@@ -327,7 +327,7 @@
   // Everything that changes the layout. Values are not part of it.
   function structureSignature(state) {
     const st = state.settings;
-    const parts = [JSON.stringify(st.columns), st.showHidden, st.plot.visible, st.plot.stacked, st.temperatureUnit];
+    const parts = [JSON.stringify(st.columns), st.showHidden, st.plot.visible, st.plot.stacked, st.temperatureUnit, st.theme && st.theme.id];
     (function walk(nodes) {
       for (const n of nodes) {
         parts.push(n.kind, n.id || '', n.name, n.visible, n.expanded, n.plot || false, n.color || '');
@@ -353,6 +353,7 @@
 
     renderPlotCard();
     renderJumpbar();
+    layoutMasonry();
     applyFilter();
     updateValues();
     updateEmpty();
@@ -457,7 +458,7 @@
 
     const dot = el('span', 'dot');
     if (s.plot && s.color) {
-      dot.style.background = s.color;
+      dot.style.background = colorFor(s);
       dot.title = 'Im Desktop-Verlauf';
     }
     row.appendChild(dot);
@@ -513,8 +514,33 @@
     }
   }
 
+  // WCAG relative luminance and contrast ratio
+  function luminance(hex) {
+    const c = parseHex(hex).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
+
+  function contrast(a, b) {
+    const x = luminance(a), y = luminance(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  }
+
+  // In light mode, palette colors such as yellow are darkened for display until they reach 3:1
+  // against the card (WCAG 1.4.11). The desktop color itself stays unchanged.
+  const displayColors = new Map();
+  function displayColor(c) {
+    if (!c || T.dark || !/^#[0-9a-f]{6}$/i.test(c)) return c;
+    const key = c + T.surface;
+    if (!displayColors.has(key)) {
+      let d = c;
+      for (let t = 0.05; contrast(d, T.surface) < 3 && t <= 0.8; t += 0.05) d = mix(c, '#000000', t);
+      displayColors.set(key, d);
+    }
+    return displayColors.get(key);
+  }
+
   function colorFor(s) {
-    return (s && s.color) || T.accent || '#5ec4b6';
+    return displayColor((s && s.color) || T.accent || '#5ec4b6');
   }
 
   function updateValues() {
@@ -543,8 +569,6 @@
       if (entry.bar) {
         const v = Math.max(0, Math.min(100, s.value || 0));
         entry.bar.firstChild.style.width = v + '%';
-        // plotted sensors keep their plot color, all others use a neutral tone
-        entry.bar.firstChild.style.background = s.plot && s.color ? s.color : '';
         entry.bar.className = 'bar ' + loadLevel(s);
       }
     }
@@ -579,6 +603,27 @@
     empty.hidden = $('tree').children.length > 0;
     empty.textContent = 'Keine Sensoren sichtbar.';
   }
+
+  // ---------- masonry ----------
+
+  // On wide screens each top-level card spans as many 4px grid rows as it is tall,
+  // so grid auto-placement puts every card into the shortest column.
+  const wide = window.matchMedia('(min-width: 800px)');
+  const sizer = 'ResizeObserver' in window ? new ResizeObserver((entries) => entries.forEach((e) => setSpan(e.target))) : null;
+
+  function setSpan(card) {
+    card.style.gridRowEnd = wide.matches ? 'span ' + Math.ceil((card.getBoundingClientRect().height + 16) / 4) : '';
+  }
+
+  function layoutMasonry() {
+    if (sizer) sizer.disconnect();
+    for (const card of $('tree').children) {
+      setSpan(card);
+      if (sizer) sizer.observe(card);
+    }
+  }
+
+  wide.addEventListener('change', layoutMasonry);
 
   // ---------- jump bar ----------
 
@@ -884,12 +929,6 @@
       ctx.setLineDash(series.length > 1 ? se.dash : []);
       ctx.beginPath();
       se.pts.forEach((p, i) => { const xx = x(p[0]), yy = y(g, p[1]); if (i) ctx.lineTo(xx, yy); else ctx.moveTo(xx, yy); });
-      if (!T.dark) {
-        // a faint dark halo keeps light palette colors (yellow, light green) visible on white
-        ctx.strokeStyle = 'rgba(28,36,51,.22)';
-        ctx.lineWidth = stroke + 1.5;
-        ctx.stroke();
-      }
       ctx.strokeStyle = se.color;
       ctx.lineWidth = stroke;
       ctx.stroke();

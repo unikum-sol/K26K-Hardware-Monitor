@@ -80,3 +80,35 @@ light palette colors (yellow, light green) below 3:1 on white; warnings shown by
 - Light mode draws a faint dark halo under each curve, so light palette colors stay visible on white.
 - Desktop uses masonry-style columns, so short cards leave no empty space.
 - The mock server now contains a realistic number of devices (mainboard, memory, two drives, one of them collapsed).
+
+## Round 2 – scores
+
+| M1 | M2 | M3 |
+| :-: | :-: | :-: |
+| 8 | 9 | 9 |
+
+From this round on the reviewers were asked to list only real blockers and to give 9 or 10 if nothing essential was missing.
+M2 and M3 had no blockers left. M1 named: inconsistent bar colors (plot color vs. neutral), the yellow curve in light mode,
+Min/Max lines too prominent, a weak scroll hint in the quick-jump bar, and the third desktop column ending much lower.
+
+Measured contrast of the derived tokens (WCAG):
+
+| Token | Dark | Black | Light |
+| --- | --- | --- | --- |
+| Secondary text on card | 5.86:1 | 5.81:1 | 5.78:1 |
+| Secondary text on page / inner surfaces | 5.27:1 | 5.37:1 | 5.25:1 |
+| Accent on card | 6.08:1 | – | 5.20:1 |
+| Warning / critical on card | 7.10:1 / – | – | 4.58:1 / 5.62:1 |
+| Yellow / light green plot colors on white (before round 3) | – | – | 1.50:1 / 1.38:1 |
+
+## Round 3 – changes
+
+- All load bars use the accent color; the plot color only appears on the dot next to the sensor name.
+- Light mode darkens plot colors for display until they reach 3:1 against the card (WCAG 1.4.11);
+  the desktop colors themselves are unchanged. The halo from round 2 is no longer needed.
+- Real masonry on desktop: each card spans as many 4 px grid rows as it is tall (ResizeObserver),
+  so grid auto-placement puts it into the shortest column and reading order stays left to right.
+- Rows 4 px more compact (50 px minimum height), dot placed closer to the name, stronger fade on the quick-jump bar.
+- Min/Max stays at 12 px with 5.8:1 contrast: M1 asked for smaller and fainter text, M3 for at least 12 px and 4.5:1;
+  accessibility wins here.
+- A theme change on the desktop now re-renders the page, so dots and display colors follow immediately.
