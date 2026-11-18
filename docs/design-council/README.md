@@ -53,3 +53,30 @@ Constraint for every round: the web interface keeps mirroring the desktop settin
 - Touch targets ≥ 44 px, `:focus-visible` rings, `prefers-reduced-motion`, ARIA states for expandable sections.
 - Grid tracks use `minmax(0, 1fr)` and the canvas has `max-width: 100%`, so charts can never widen the layout.
 - Settings panel with search field, segmented control for the time span and grouped actions.
+
+## Round 1 – scores
+
+| M1 | M2 | M3 |
+| :-: | :-: | :-: |
+| 7 | 8 | 8 |
+
+**Remaining blockers named by the council:** legend chips cut off on phones; quick-jump bar without scroll hint
+and active state; key values in the card header unlabeled and redundant when the card is open; bars use the accent
+instead of the sensor color and change the row height; secondary text and axis labels too faint (especially light mode);
+light palette colors (yellow, light green) below 3:1 on white; warnings shown by color only; gaps below short cards on desktop.
+
+## Round 2 – changes
+
+- Legend chips wrap to new lines instead of being cut off; long names get an ellipsis.
+- Quick-jump bar: 44 px pills, scroll snapping, fade on the right edge while more pills are available,
+  and scroll-spy highlighting of the section currently on screen.
+- Card header: labelled key values (icon + value) only while the card is collapsed; an open card shows the sensor count.
+- Group headers show the number of sensors ("TEMPERATURES · 3"); smaller, quieter chevrons.
+- Sensor names line up exactly with the group label (16 px icon slot); dividers start at the name instead of the card edge.
+- Bars sit in the row's bottom padding (no height jump), use the plot color for plotted sensors and a neutral tone otherwise,
+  and always show at least 3 px.
+- Warnings and critical values show a warning symbol next to the colored value.
+- Secondary text darker in light mode (about 5:1), grid lines 10–12 %, axis labels 12 px, accent dimmed in dark mode (#4fb3a6).
+- Light mode draws a faint dark halo under each curve, so light palette colors stay visible on white.
+- Desktop uses masonry-style columns, so short cards leave no empty space.
+- The mock server now contains a realistic number of devices (mainboard, memory, two drives, one of them collapsed).

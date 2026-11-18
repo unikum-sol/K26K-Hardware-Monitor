@@ -244,7 +244,7 @@
       divider: black ? '#19191b' : mix(bg, fg, 0.075),
       text: mix(fg, bg, 0.06),
       text2: mix(fg, bg, 0.36),
-      accent: '#5ec4b6',
+      accent: '#4fb3a6',
       warn: '#e5a443',
       crit: '#ef6461',
       ok: '#4cc38a',
@@ -256,14 +256,14 @@
       border: mix(bg, slate, 0.17),
       divider: mix(bg, slate, 0.1),
       text: mix(fg, '#1c2433', 0.6),
-      text2: mix(fg === '#000000' ? '#1c2433' : fg, bg, 0.4),
+      text2: mix(fg === '#000000' ? '#1c2433' : fg, bg, 0.3),
       accent: '#0f7a70',
       warn: '#b45f06',
       crit: '#c62828',
       ok: '#15803d',
       shadow: '0 1px 2px rgba(28,36,51,.05), 0 1px 3px rgba(28,36,51,.04)'
     });
-    T.grid = rgba(T.text, dark ? 0.08 : 0.09);
+    T.grid = rgba(T.text, dark ? 0.1 : 0.12);
     T.dark = dark;
 
     const r = document.documentElement.style;
@@ -280,6 +280,7 @@
     r.setProperty('--crit', T.crit);
     r.setProperty('--ok', T.ok);
     r.setProperty('--grid', T.grid);
+    r.setProperty('--bar', T.text2);
     r.setProperty('--shadow', T.shadow);
     r.setProperty('--header-bg', rgba(T.page, 0.86));
     r.setProperty('color-scheme', dark ? 'dark' : 'light');
@@ -433,7 +434,7 @@
     head.type = 'button';
     head.setAttribute('aria-expanded', String(!collapsed));
     head.innerHTML = icon(TYPE_ICON[group.sensorType]) + '<span class="label"></span><span class="chev">' + icon('Chevron') + '</span>';
-    head.querySelector('.label').textContent = group.name;
+    head.querySelector('.label').innerHTML = escapeHtml(group.name) + ' <span class="count">· ' + sensors.length + '</span>';
     head.addEventListener('click', () => setCollapsed(key, wrap, !wrap.classList.contains('collapsed')));
     wrap.appendChild(head);
 
@@ -523,9 +524,13 @@
       if (!s) continue;
 
       const [num, unit] = splitUnit(s.text.value);
-      const valueHtml = escapeHtml(num) + (unit ? '<span class="unit">' + escapeHtml(unit) + '</span>' : '');
+      const level = temperatureLevel(s) || loadLevel(s);
+      // warnings are shown with a symbol as well, not by color alone
+      const valueHtml = (level ? '<svg class="i alert" viewBox="0 0 24 24" aria-label="' + (level === 'crit' ? 'Kritisch' : 'Warnung') +
+        '"><path d="M12 4 2.5 20h19L12 4Z"/><path d="M12 10v4M12 17h.01"/></svg>' : '') +
+        escapeHtml(num) + (unit ? '<span class="unit">' + escapeHtml(unit) + '</span>' : '');
       if (valueHtml !== entry.lastValue) { entry.value.innerHTML = valueHtml; entry.lastValue = valueHtml; }
-      entry.value.className = 'sensor-value ' + temperatureLevel(s);
+      entry.value.className = 'sensor-value ' + level;
 
       // drop the unit from Min/Max only when it is the same as the value's (e.g. KB/s vs. MB/s differ)
       const short = (t) => { const p = splitUnit(t); return p[1] === unit ? p[0] : t; };
@@ -538,17 +543,21 @@
       if (entry.bar) {
         const v = Math.max(0, Math.min(100, s.value || 0));
         entry.bar.firstChild.style.width = v + '%';
+        // plotted sensors keep their plot color, all others use a neutral tone
+        entry.bar.firstChild.style.background = s.plot && s.color ? s.color : '';
         entry.bar.className = 'bar ' + loadLevel(s);
       }
     }
 
+    // collapsed cards show labelled key values, expanded cards only the sensor count
     for (const sum of S.summaries) {
       const parts = sum.ids.map((id) => S.sensors.get(id)).filter(Boolean).map((s) => {
         const [num, unit] = splitUnit(s.text.value);
-        return '<b>' + escapeHtml(num) + '</b> ' + escapeHtml(unit);
+        return '<span class="kv" title="' + escapeHtml(s.name) + '">' + icon(TYPE_ICON[s.sensorType]) +
+          '<b>' + escapeHtml(num) + '</b>' + escapeHtml(unit) + '</span>';
       });
-      const html = parts.length ? parts.join(' · ') : sum.count + ' Sensoren';
-      if (sum.el.innerHTML !== html) sum.el.innerHTML = html;
+      const html = parts.join('') + '<span class="expanded-only">' + sum.count + (sum.count === 1 ? ' Sensor' : ' Sensoren') + '</span>';
+      if (sum.html !== html) { sum.el.innerHTML = html; sum.html = html; }
     }
   }
 
@@ -577,18 +586,43 @@
     const bar = $('jumpbar');
     bar.textContent = '';
 
-    if (!$('plotCard').hidden) bar.appendChild(jumpPill('Verlauf', 'Chart', 0, $('plotCard')));
+    if (!$('plotCard').hidden) bar.appendChild(jumpPill('Verlauf', 'Chart', 0, [$('plotCard')]));
 
     const cards = Array.from($('tree').children);
     for (const cat of CATEGORIES) {
       const matches = cards.filter((c) => cat.types.includes(c.dataset.type));
-      if (matches.length) bar.appendChild(jumpPill(cat.label, cat.icon, matches.length, matches[0]));
+      if (matches.length) bar.appendChild(jumpPill(cat.label, cat.icon, matches.length, matches));
     }
     bar.hidden = bar.children.length < 2;
+    updateJumpFade();
+    observeSections();
   }
 
-  function jumpPill(label, iconName, count, target) {
+  // fade the right edge while more pills can be scrolled into view
+  function updateJumpFade() {
+    const bar = $('jumpbar');
+    bar.classList.toggle('fade-end', bar.scrollLeft + bar.clientWidth < bar.scrollWidth - 4);
+  }
+
+  // highlights the pill of the section currently at the top of the screen
+  let spy = null;
+  function observeSections() {
+    if (spy) spy.disconnect();
+    if (!('IntersectionObserver' in window)) return;
+    const pills = Array.from($('jumpbar').children);
+    const visible = new Map();
+    spy = new IntersectionObserver((entries) => {
+      for (const e of entries) visible.set(e.target, e.isIntersecting);
+      const first = pills.find((p) => p._targets.some((t) => visible.get(t)));
+      for (const p of pills) p.classList.toggle('active', p === first);
+    }, { rootMargin: '-120px 0px -55% 0px' });
+    for (const p of pills) for (const t of p._targets) spy.observe(t);
+  }
+
+  function jumpPill(label, iconName, count, targets) {
+    const target = targets[0];
     const b = el('button', 'pill');
+    b._targets = targets;
     b.type = 'button';
     b.innerHTML = icon(iconName) + '<span></span>' + (count > 1 ? '<span class="count">' + count + '</span>' : '');
     b.children[1].textContent = label;
@@ -639,7 +673,7 @@
         title.appendChild(el('span', '', list[0].unit || ''));
         section.appendChild(title);
         box.appendChild(section);
-        createChart(section, { ids: list.map((s) => s.id), height: 132, legend: true });
+        createChart(section, { ids: list.map((s) => s.id), height: 140, legend: true });
       }
     } else {
       const section = el('div', 'plot-section');
@@ -784,7 +818,7 @@
     }
     const groupList = Array.from(groups.values());
 
-    ctx.font = '500 11px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    ctx.font = '500 12px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
     const labelW = (g) => Math.max(...g.ticks.map((t) => ctx.measureText(axisLabel(t, g.unit)).width));
     const leftW = labelW(groupList[0]) + 10;
     const rightW = groupList.length > 1 ? labelW(groupList[1]) + 10 : 6;
@@ -847,11 +881,17 @@
         ctx.fillStyle = grad;
         ctx.fill();
       }
-      ctx.strokeStyle = se.color;
-      ctx.lineWidth = stroke;
       ctx.setLineDash(series.length > 1 ? se.dash : []);
       ctx.beginPath();
       se.pts.forEach((p, i) => { const xx = x(p[0]), yy = y(g, p[1]); if (i) ctx.lineTo(xx, yy); else ctx.moveTo(xx, yy); });
+      if (!T.dark) {
+        // a faint dark halo keeps light palette colors (yellow, light green) visible on white
+        ctx.strokeStyle = 'rgba(28,36,51,.22)';
+        ctx.lineWidth = stroke + 1.5;
+        ctx.stroke();
+      }
+      ctx.strokeStyle = se.color;
+      ctx.lineWidth = stroke;
       ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -860,8 +900,8 @@
     // legend
     if (chart.legend) {
       const html = series.map((se) => '<span class="chip"><i class="swatch' + (series.length > 1 && se.index % DASHES.length ? ' dash' + Math.min(2, se.index % DASHES.length) : '') +
-        '" style="border-color:' + se.color + '"></i>' + escapeHtml(se.s ? se.s.name : '') +
-        ' <b>' + escapeHtml(se.s ? se.s.text.value : '') + '</b></span>').join('');
+        '" style="border-color:' + se.color + '"></i><span class="n">' + escapeHtml(se.s ? se.s.name : '') +
+        '</span><b>' + escapeHtml(se.s ? se.s.text.value : '') + '</b></span>').join('');
       if (chart.legend.innerHTML !== html) chart.legend.innerHTML = html;
     }
 
@@ -1089,6 +1129,8 @@
     cancelAnimationFrame(resizeFrame);
     resizeFrame = requestAnimationFrame(drawAllCharts);
   });
+
+  $('jumpbar').addEventListener('scroll', updateJumpFade, { passive: true });
 
   initMenu();
   fetchState();

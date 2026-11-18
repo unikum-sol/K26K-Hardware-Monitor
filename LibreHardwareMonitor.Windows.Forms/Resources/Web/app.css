@@ -19,7 +19,8 @@
   --warn: #e5a443;
   --crit: #ef6461;
   --ok: #4cc38a;
-  --grid: rgba(228, 228, 230, .08);
+  --grid: rgba(228, 228, 230, .1);
+  --bar: #8b8c91;
   --axis: #8b8c91;
   --shadow: none;
   --header-bg: rgba(23, 24, 26, .82);
@@ -166,16 +167,20 @@ h1 {
   margin: 0 auto;
   padding: 0 var(--gutter) 10px;
   overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scroll-padding: 0 var(--gutter);
   scrollbar-width: none;
 }
 .jumpbar::-webkit-scrollbar { display: none; }
+.jumpbar.fade-end { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); }
 
 .pill {
   flex: none;
+  scroll-snap-align: start;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 36px;
+  min-height: 44px;
   padding: 0 14px;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -287,11 +292,13 @@ main {
   align-items: start;
 }
 
+/* masonry-like columns on wide screens, so short cards leave no gaps */
 @media (min-width: 800px) {
-  #tree { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  #tree { display: block; columns: 2; column-gap: 16px; }
+  #tree > .card { break-inside: avoid; margin-bottom: 16px; }
 }
 @media (min-width: 1180px) {
-  #tree { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #tree { columns: 3; }
 }
 
 .card {
@@ -350,6 +357,12 @@ main {
   text-overflow: ellipsis;
 }
 .card-summary b { color: var(--text); font-weight: 600; }
+.card-summary .kv { display: inline-flex; align-items: center; gap: 4px; }
+.card-summary .kv + .kv { margin-left: 12px; }
+.card-summary svg.i { width: 14px; height: 14px; }
+.card-summary .expanded-only { display: none; }
+.card:not(.collapsed) > .card-head .card-summary .kv { display: none; }
+.card:not(.collapsed) > .card-head .card-summary .expanded-only { display: inline; }
 
 .chev {
   display: grid;
@@ -393,30 +406,41 @@ main {
 }
 .group-head svg.i { width: 16px; height: 16px; }
 .group-head .label { flex: 1; min-width: 0; }
-.group-head .chev { width: 28px; height: 28px; }
+.group-head .count { font-weight: 500; letter-spacing: 0; opacity: .85; }
+.group-head .chev { width: 28px; height: 28px; opacity: .75; }
+.group-head .chev svg.i { width: 15px; height: 15px; }
 
 /* ---------- sensor rows ---------- */
 
+/* names line up with the group label: 16px padding + 16px icon slot + 8px gap */
 .sensor-row {
+  position: relative;
   display: grid;
-  grid-template-columns: 8px minmax(0, 1fr) auto;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
   align-items: center;
-  column-gap: 12px;
+  column-gap: 8px;
   width: 100%;
-  min-height: 52px;
-  padding: 8px 16px;
+  min-height: 54px;
+  padding: 8px 16px 10px;
   border: 0;
-  border-top: 1px solid var(--divider);
   background: transparent;
   text-align: left;
   cursor: pointer;
 }
-.group-body .sensor:first-child .sensor-row { border-top: 0; }
+.group-body .sensor + .sensor .sensor-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 40px;
+  right: 0;
+  border-top: 1px solid var(--divider);
+}
 .sensor-row:hover { background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
 .sensor-row:active { background: var(--surface-2); }
 .sensor.open .sensor-row { background: var(--surface-2); }
 
 .dot {
+  justify-self: center;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -440,6 +464,7 @@ main {
 .sensor-value .unit { margin-left: 3px; font-size: var(--fs-s); font-weight: 500; color: var(--text-2); }
 .sensor-value.warn { color: var(--warn); }
 .sensor-value.crit { color: var(--crit); }
+.sensor-value .alert { display: inline-block; width: 14px; height: 14px; margin-right: 4px; vertical-align: -1px; stroke-width: 2.2; }
 .sensor-minmax {
   font-size: var(--fs-xs);
   color: var(--text-2);
@@ -448,15 +473,18 @@ main {
 
 .sensor.hidden-sensor .sensor-name, .sensor.hidden-sensor .sensor-value { color: var(--text-2); font-style: italic; }
 
+/* the bar sits in the row's bottom padding, so rows with and without a bar have the same height */
 .bar {
-  grid-column: 2 / -1;
-  height: 4px;
-  margin-top: 8px;
+  position: absolute;
+  left: 40px;
+  right: 16px;
+  bottom: 5px;
+  height: 3px;
   border-radius: 2px;
   background: var(--grid);
   overflow: hidden;
 }
-.bar > i { display: block; height: 100%; border-radius: 2px; background: var(--accent); transition: width .4s ease; }
+.bar > i { display: block; min-width: 3px; height: 100%; border-radius: 2px; background: var(--bar); transition: width .4s ease; }
 .bar.warn > i { background: var(--warn); }
 .bar.crit > i { background: var(--crit); }
 
@@ -513,17 +541,16 @@ main {
 
 .legend {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
   padding: 8px 4px 2px;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
-.legend::-webkit-scrollbar { display: none; }
 .legend .chip {
-  flex: none;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  max-width: 100%;
   min-height: 32px;
   padding: 0 12px;
   border-radius: 999px;
@@ -531,6 +558,7 @@ main {
   font-size: var(--fs-s);
   white-space: nowrap;
 }
+.legend .chip .n { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .legend .chip b { font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .swatch { width: 16px; height: 0; border-top: 2.5px solid; flex: none; }
