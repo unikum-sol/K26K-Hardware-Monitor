@@ -13,6 +13,7 @@ of a phone, tablet or another PC, with the same settings you configured in the d
   - Tap a sensor to open **its own chart**; tap or drag inside a chart to read the values at that moment
   - Chart time span from 1 min to 24 h, or the same as the desktop plot
   - Search/filter, expand/collapse, can be added to the home screen as an app
+  - English and German interface, switchable in the view menu; English by default, the choice is remembered in the browser
   - Light and dark mode derived from the desktop theme, WCAG-oriented contrast, line styles in addition to colors
 
   <p>

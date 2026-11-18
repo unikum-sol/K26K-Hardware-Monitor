@@ -4,7 +4,7 @@
   Copyright (C) 2026 K26K Hardware Monitor contributors
   Licensed under the GNU Affero General Public License v3.0 or later, see LICENSE.
 -->
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -25,39 +25,43 @@
       <div class="title-text">
         <h1 id="machine">K26K Hardware Monitor</h1>
         <div class="subtitle">
-          <span class="status" id="status">Verbinde</span>
+          <span class="status" id="status" data-i18n="connecting">Connecting</span>
           <span id="subtitle"></span>
         </div>
       </div>
-      <button class="icon-btn" id="menuBtn" type="button" aria-label="Ansicht und Suche" aria-expanded="false" aria-controls="menu">
+      <button class="icon-btn" id="menuBtn" type="button" aria-label="View and search" data-i18n-aria-label="menuButton" aria-expanded="false" aria-controls="menu">
         <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
       </button>
     </div>
-    <nav class="jumpbar" id="jumpbar" aria-label="Zu Hardware springen"></nav>
+    <nav class="jumpbar" id="jumpbar" aria-label="Jump to hardware" data-i18n-aria-label="jumpNav"></nav>
   </header>
 
-  <section class="panel" id="menu" hidden aria-label="Ansicht">
+  <section class="panel" id="menu" hidden aria-label="View" data-i18n-aria-label="panel">
     <div class="field">
-      <label class="field-label" for="filter">Suche</label>
+      <label class="field-label" for="filter" data-i18n="search">Search</label>
       <div class="search">
         <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
-        <input type="search" id="filter" placeholder="Sensor oder Hardware" autocomplete="off">
+        <input type="search" id="filter" placeholder="Sensor or hardware" data-i18n-placeholder="searchPlaceholder" autocomplete="off">
       </div>
     </div>
     <div class="field">
-      <span class="field-label" id="spanLabel">Zeitraum der Kurven</span>
+      <span class="field-label" id="spanLabel" data-i18n="timeSpan">Chart time span</span>
       <div class="segmented" id="spanChips" role="group" aria-labelledby="spanLabel"></div>
     </div>
+    <div class="field">
+      <span class="field-label" id="langLabel" data-i18n="language">Language</span>
+      <div class="segmented" id="langChips" role="group" aria-labelledby="langLabel"></div>
+    </div>
     <div class="actions">
-      <button class="btn" id="expandAll" type="button">Alle aufklappen</button>
-      <button class="btn" id="collapseAll" type="button">Alle zuklappen</button>
-      <button class="btn" id="resetLocal" type="button">Wie am Desktop</button>
+      <button class="btn" id="expandAll" type="button" data-i18n="expandAll">Expand all</button>
+      <button class="btn" id="collapseAll" type="button" data-i18n="collapseAll">Collapse all</button>
+      <button class="btn" id="resetLocal" type="button" data-i18n="resetLocal">Same as desktop</button>
     </div>
     <p class="note" id="mirrorInfo"></p>
     <div class="links">
-      <a href="classic.html">Klassische Ansicht</a>
+      <a href="classic.html" data-i18n="classic">Classic view</a>
       <a href="data.json" target="_blank" rel="noopener">data.json</a>
-      <a href="https://github.com/unikum-sol/K26K-Hardware-Monitor" target="_blank" rel="noopener">Quellcode (AGPL-3.0)</a>
+      <a href="https://github.com/unikum-sol/K26K-Hardware-Monitor" target="_blank" rel="noopener" data-i18n="source">Source code (AGPL-3.0)</a>
     </div>
   </section>
 
@@ -65,7 +69,7 @@
     <section class="card plot-card" id="plotCard" hidden>
       <div class="card-head static">
         <span class="tile"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M5 15l4-5 4 3 6-7"/></svg></span>
-        <span class="head-text"><span class="card-title">Verlauf</span></span>
+        <span class="head-text"><span class="card-title" data-i18n="history">History</span></span>
         <span class="card-meta" id="plotMeta"></span>
       </div>
       <div id="plotCharts"></div>

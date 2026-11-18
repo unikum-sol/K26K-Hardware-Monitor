@@ -105,37 +105,93 @@
     return '<svg class="i" viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name] || CHIP) + '</svg>';
   }
 
+  // ---------- languages (English is the default, the choice is kept in this browser) ----------
+
+  const I18N = {
+    en: {
+      locale: 'en-US',
+      connecting: 'Connecting', live: 'Live', disconnected: 'Disconnected', since: 'since {0}',
+      menuButton: 'View and search', jumpNav: 'Jump to hardware', panel: 'View',
+      language: 'Language', search: 'Search', searchPlaceholder: 'Sensor or hardware',
+      timeSpan: 'Chart time span', spanDesktop: 'Desktop', spanDesktopTitle: 'Use the time span of the desktop plot',
+      expandAll: 'Expand all', collapseAll: 'Collapse all', resetLocal: 'Same as desktop',
+      classic: 'Classic view', source: 'Source code (AGPL-3.0)',
+      history: 'History', sensor: 'sensor', sensors: 'sensors', inDesktopPlot: 'In the desktop plot',
+      warning: 'Warning', critical: 'Critical', now: 'now', noSensors: 'No visible sensors.',
+      mirror: 'Taken over from the desktop: theme "{0}", °{1}, columns {2}, hidden sensors {3}, plot {4}, update every {5} s.',
+      none: 'none', shown: 'shown', hiddenState: 'hidden', on: 'on', off: 'off',
+      colValue: 'Value', colMin: 'Min', colMax: 'Max',
+      categories: { cpu: 'CPU', gpu: 'GPU', board: 'Mainboard', ram: 'Memory', disk: 'Storage', net: 'Network', cool: 'Cooling', power: 'Power' },
+      types: {
+        Voltage: 'Voltage', Current: 'Current', Clock: 'Clock', Load: 'Load', Temperature: 'Temperature',
+        Fan: 'Fan', Flow: 'Flow', Control: 'Control', Level: 'Level', Power: 'Power', Data: 'Data', SmallData: 'Data',
+        Throughput: 'Throughput', Frequency: 'Frequency', Energy: 'Energy', Noise: 'Noise', Humidity: 'Humidity',
+        Factor: 'Factor', Timing: 'Timing', TimeSpan: 'Time', Conductivity: 'Conductivity'
+      }
+    },
+    de: {
+      locale: 'de-DE',
+      connecting: 'Verbinde', live: 'Live', disconnected: 'Getrennt', since: 'seit {0}',
+      menuButton: 'Ansicht und Suche', jumpNav: 'Zu Hardware springen', panel: 'Ansicht',
+      language: 'Sprache', search: 'Suche', searchPlaceholder: 'Sensor oder Hardware',
+      timeSpan: 'Zeitraum der Kurven', spanDesktop: 'Desktop', spanDesktopTitle: 'Zeitraum aus dem Desktop-Plot übernehmen',
+      expandAll: 'Alle aufklappen', collapseAll: 'Alle zuklappen', resetLocal: 'Wie am Desktop',
+      classic: 'Klassische Ansicht', source: 'Quellcode (AGPL-3.0)',
+      history: 'Verlauf', sensor: 'Sensor', sensors: 'Sensoren', inDesktopPlot: 'Im Desktop-Verlauf',
+      warning: 'Warnung', critical: 'Kritisch', now: 'jetzt', noSensors: 'Keine Sensoren sichtbar.',
+      mirror: 'Vom Desktop übernommen: Design „{0}“, °{1}, Spalten {2}, ausgeblendete Sensoren {3}, Verlauf {4}, Aktualisierung alle {5} s.',
+      none: 'keine', shown: 'sichtbar', hiddenState: 'versteckt', on: 'an', off: 'aus',
+      colValue: 'Wert', colMin: 'Min', colMax: 'Max',
+      categories: { cpu: 'CPU', gpu: 'GPU', board: 'Mainboard', ram: 'Speicher', disk: 'Laufwerke', net: 'Netzwerk', cool: 'Kühlung', power: 'Energie' },
+      types: {
+        Voltage: 'Spannung', Current: 'Strom', Clock: 'Takt', Load: 'Last', Temperature: 'Temperatur',
+        Fan: 'Lüfter', Flow: 'Durchfluss', Control: 'Steuerung', Level: 'Füllstand', Power: 'Leistung', Data: 'Daten', SmallData: 'Daten',
+        Throughput: 'Durchsatz', Frequency: 'Frequenz', Energy: 'Energie', Noise: 'Lautstärke', Humidity: 'Feuchte',
+        Factor: 'Faktor', Timing: 'Timing', TimeSpan: 'Zeit', Conductivity: 'Leitfähigkeit'
+      }
+    }
+  };
+
+  const LANGUAGES = [{ id: 'en', label: 'English' }, { id: 'de', label: 'Deutsch' }];
+  let lang = I18N[load('k26k.lang', 'en')] ? load('k26k.lang', 'en') : 'en';
+
+  // t('since', '12:00') -> "since 12:00"
+  function t(key, ...args) {
+    const text = I18N[lang][key] !== undefined ? I18N[lang][key] : I18N.en[key];
+    return typeof text === 'string' ? text.replace(/\{(\d)\}/g, (m, i) => args[i] !== undefined ? args[i] : m) : text;
+  }
+
+  // Texts in index.html are marked with data-i18n, data-i18n-placeholder and data-i18n-aria-label.
+  function applyStaticTexts() {
+    document.documentElement.lang = lang;
+    for (const e of document.querySelectorAll('[data-i18n]')) e.textContent = t(e.dataset.i18n);
+    for (const e of document.querySelectorAll('[data-i18n-placeholder]')) e.placeholder = t(e.dataset.i18nPlaceholder);
+    for (const e of document.querySelectorAll('[data-i18n-aria-label]')) e.setAttribute('aria-label', t(e.dataset.i18nAriaLabel));
+  }
+
   // Groups for the jump bar at the top.
   const CATEGORIES = [
-    { id: 'cpu', label: 'CPU', icon: 'Cpu', types: ['Cpu'] },
-    { id: 'gpu', label: 'GPU', icon: 'Gpu', types: ['GpuNvidia', 'GpuAmd', 'GpuIntel'] },
-    { id: 'board', label: 'Mainboard', icon: 'Motherboard', types: ['Motherboard', 'SuperIO', 'EmbeddedController'] },
-    { id: 'ram', label: 'Speicher', icon: 'Memory', types: ['Memory'] },
-    { id: 'disk', label: 'Laufwerke', icon: 'Storage', types: ['Storage'] },
-    { id: 'net', label: 'Netzwerk', icon: 'Network', types: ['Network'] },
-    { id: 'cool', label: 'Kühlung', icon: 'Cooler', types: ['Cooler'] },
-    { id: 'power', label: 'Energie', icon: 'Power', types: ['Psu', 'Battery', 'PowerMonitor'] }
+    { id: 'cpu', icon: 'Cpu', types: ['Cpu'] },
+    { id: 'gpu', icon: 'Gpu', types: ['GpuNvidia', 'GpuAmd', 'GpuIntel'] },
+    { id: 'board', icon: 'Motherboard', types: ['Motherboard', 'SuperIO', 'EmbeddedController'] },
+    { id: 'ram', icon: 'Memory', types: ['Memory'] },
+    { id: 'disk', icon: 'Storage', types: ['Storage'] },
+    { id: 'net', icon: 'Network', types: ['Network'] },
+    { id: 'cool', icon: 'Cooler', types: ['Cooler'] },
+    { id: 'power', icon: 'Power', types: ['Psu', 'Battery', 'PowerMonitor'] }
   ];
 
   const SPANS = [
-    { s: 0, label: 'Desktop' }, { s: 60, label: '1 min' }, { s: 300, label: '5 min' },
+    { s: 0, label: null }, { s: 60, label: '1 min' }, { s: 300, label: '5 min' },
     { s: 600, label: '10 min' }, { s: 1800, label: '30 min' }, { s: 3600, label: '1 h' },
     { s: 6 * 3600, label: '6 h' }, { s: 24 * 3600, label: '24 h' }
   ];
-
-  const TYPE_TITLES = {
-    Voltage: 'Spannung', Current: 'Strom', Clock: 'Takt', Load: 'Last', Temperature: 'Temperatur',
-    Fan: 'Lüfter', Flow: 'Durchfluss', Control: 'Steuerung', Level: 'Füllstand', Power: 'Leistung',
-    Data: 'Daten', SmallData: 'Daten', Throughput: 'Durchsatz', Frequency: 'Frequenz', Energy: 'Energie',
-    Noise: 'Lautstärke', Humidity: 'Feuchte', Factor: 'Faktor', Timing: 'Timing', TimeSpan: 'Zeit',
-    Conductivity: 'Leitfähigkeit'
-  };
 
   // Line styles so that curves can be told apart without color.
   const DASHES = [[], [7, 4], [1.5, 4], [10, 3, 2, 3]];
 
   function formatNumber(v, unit) {
-    if (v === null || v === undefined || !isFinite(v)) return '–';
+    if (v === null || v === undefined || !isFinite(v)) return '-';
     const a = Math.abs(v);
     if (unit === 'B/s') {
       if (a >= 1073741824) return (v / 1073741824).toFixed(1) + ' GB/s';
@@ -155,7 +211,7 @@
   }
 
   function formatAgo(seconds) {
-    if (seconds < 1) return 'jetzt';
+    if (seconds < 1) return t('now');
     if (seconds < 120) return '−' + Math.round(seconds) + ' s';
     if (seconds < 7200) return '−' + Math.round(seconds / 60) + ' min';
     return '−' + (seconds / 3600).toFixed(seconds < 36000 ? 1 : 0).replace('.0', '') + ' h';
@@ -459,7 +515,7 @@
     const dot = el('span', 'dot');
     if (s.plot && s.color) {
       dot.style.background = colorFor(s);
-      dot.title = 'Im Desktop-Verlauf';
+      dot.title = t('inDesktopPlot');
     }
     row.appendChild(dot);
     row.appendChild(el('span', 'sensor-name', s.name));
@@ -552,7 +608,7 @@
       const [num, unit] = splitUnit(s.text.value);
       const level = temperatureLevel(s) || loadLevel(s);
       // warnings are shown with a symbol as well, not by color alone
-      const valueHtml = (level ? '<svg class="i alert" viewBox="0 0 24 24" aria-label="' + (level === 'crit' ? 'Kritisch' : 'Warnung') +
+      const valueHtml = (level ? '<svg class="i alert" viewBox="0 0 24 24" aria-label="' + (level === 'crit' ? t('critical') : t('warning')) +
         '"><path d="M12 4 2.5 20h19L12 4Z"/><path d="M12 10v4M12 17h.01"/></svg>' : '') +
         escapeHtml(num) + (unit ? '<span class="unit">' + escapeHtml(unit) + '</span>' : '');
       if (valueHtml !== entry.lastValue) { entry.value.innerHTML = valueHtml; entry.lastValue = valueHtml; }
@@ -580,7 +636,7 @@
         return '<span class="kv" title="' + escapeHtml(s.name) + '">' + icon(TYPE_ICON[s.sensorType]) +
           '<b>' + escapeHtml(num) + '</b>' + escapeHtml(unit) + '</span>';
       });
-      const html = parts.join('') + '<span class="expanded-only">' + sum.count + (sum.count === 1 ? ' Sensor' : ' Sensoren') + '</span>';
+      const html = parts.join('') + '<span class="expanded-only">' + sum.count + ' ' + (sum.count === 1 ? t('sensor') : t('sensors')) + '</span>';
       if (sum.html !== html) { sum.el.innerHTML = html; sum.html = html; }
     }
   }
@@ -601,7 +657,7 @@
   function updateEmpty() {
     const empty = $('empty');
     empty.hidden = $('tree').children.length > 0;
-    empty.textContent = 'Keine Sensoren sichtbar.';
+    empty.textContent = t('noSensors');
   }
 
   // ---------- masonry ----------
@@ -631,12 +687,12 @@
     const bar = $('jumpbar');
     bar.textContent = '';
 
-    if (!$('plotCard').hidden) bar.appendChild(jumpPill('Verlauf', 'Chart', 0, [$('plotCard')]));
+    if (!$('plotCard').hidden) bar.appendChild(jumpPill(t('history'), 'Chart', 0, [$('plotCard')]));
 
     const cards = Array.from($('tree').children);
     for (const cat of CATEGORIES) {
       const matches = cards.filter((c) => cat.types.includes(c.dataset.type));
-      if (matches.length) bar.appendChild(jumpPill(cat.label, cat.icon, matches.length, matches));
+      if (matches.length) bar.appendChild(jumpPill(t('categories')[cat.id], cat.icon, matches.length, matches));
     }
     bar.hidden = bar.children.length < 2;
     updateJumpFade();
@@ -702,7 +758,7 @@
     card.hidden = !(plot.visible && sensors.length);
     if (card.hidden) return;
 
-    $('plotMeta').textContent = sensors.length + (sensors.length === 1 ? ' Sensor' : ' Sensoren');
+    $('plotMeta').textContent = sensors.length + ' ' + (sensors.length === 1 ? t('sensor') : t('sensors'));
 
     if (plot.stacked) {
       // one chart per sensor type, in the same top-to-bottom order as the desktop
@@ -714,7 +770,7 @@
       for (const [type, list] of byType) {
         const section = el('div', 'plot-section');
         const title = el('div', 'chart-title');
-        title.appendChild(el('span', '', TYPE_TITLES[type] || type));
+        title.appendChild(el('span', '', t('types')[type] || type));
         title.appendChild(el('span', '', list[0].unit || ''));
         section.appendChild(title);
         box.appendChild(section);
@@ -1006,10 +1062,10 @@
     const box = $('spanChips');
     box.textContent = '';
     for (const sp of SPANS) {
-      const b = el('button', S.span === sp.s ? 'active' : '', sp.label);
+      const b = el('button', S.span === sp.s ? 'active' : '', sp.label || t('spanDesktop'));
       b.type = 'button';
       b.setAttribute('aria-pressed', String(S.span === sp.s));
-      if (sp.s === 0) b.title = 'Zeitraum aus dem Desktop-Plot übernehmen';
+      if (sp.s === 0) b.title = t('spanDesktopTitle');
       b.addEventListener('click', () => {
         S.span = sp.s;
         save('k26k.span', S.span);
@@ -1022,10 +1078,39 @@
 
   function renderMirrorInfo() {
     const st = settings();
-    const cols = ['value', 'min', 'max'].filter((c) => st.columns[c]).map((c) => ({ value: 'Wert', min: 'Min', max: 'Max' })[c]);
-    $('mirrorInfo').textContent = 'Vom Desktop übernommen: Design „' + (st.theme ? st.theme.name : '?') + '“, °' + st.temperatureUnit +
-      ', Spalten ' + (cols.join(' / ') || 'keine') + ', ausgeblendete Sensoren ' + (st.showHidden ? 'sichtbar' : 'versteckt') +
-      ', Verlauf ' + (st.plot.visible ? 'an' : 'aus') + ', Aktualisierung alle ' + (st.updateInterval / 1000).toLocaleString() + ' s.';
+    const cols = ['value', 'min', 'max'].filter((c) => st.columns[c]).map((c) => t({ value: 'colValue', min: 'colMin', max: 'colMax' }[c]));
+    $('mirrorInfo').textContent = t('mirror',
+      st.theme ? st.theme.name : '?',
+      st.temperatureUnit,
+      cols.join(' / ') || t('none'),
+      st.showHidden ? t('shown') : t('hiddenState'),
+      st.plot.visible ? t('on') : t('off'),
+      (st.updateInterval / 1000).toLocaleString(t('locale')));
+  }
+
+  function renderLanguageChips() {
+    const box = $('langChips');
+    box.textContent = '';
+    for (const l of LANGUAGES) {
+      const b = el('button', lang === l.id ? 'active' : '', l.label);
+      b.type = 'button';
+      b.lang = l.id;
+      b.setAttribute('aria-pressed', String(lang === l.id));
+      b.addEventListener('click', () => setLanguage(l.id));
+      box.appendChild(b);
+    }
+  }
+
+  function setLanguage(id) {
+    if (!I18N[id] || id === lang) return;
+    lang = id;
+    save('k26k.lang', id);
+    applyStaticTexts();
+    renderLanguageChips();
+    renderSpanChips();
+    renderMirrorInfo();
+    if (S.state) { render(); S.signature = structureSignature(S.state); }
+    setStatus(S.failures === 0 && S.lastOk > 0);
   }
 
   function setAllCollapsed(collapsed) {
@@ -1064,6 +1149,8 @@
       if (S.state) { render(); S.signature = structureSignature(S.state); }
       fetchHistory();
     });
+    applyStaticTexts();
+    renderLanguageChips();
     renderSpanChips();
   }
 
@@ -1144,12 +1231,12 @@
     const status = $('status');
     status.classList.toggle('ok', ok);
     status.classList.toggle('bad', !ok);
-    status.textContent = ok ? 'Live' : 'Getrennt';
+    status.textContent = ok ? t('live') : t('disconnected');
     const sub = $('subtitle');
     if (ok) {
-      sub.textContent = new Date().toLocaleTimeString() + (S.state ? ' · v' + S.state.version : '');
+      sub.textContent = new Date().toLocaleTimeString(t('locale')) + (S.state ? ' · v' + S.state.version : '');
     } else {
-      sub.textContent = (S.lastOk ? 'seit ' + new Date(S.lastOk).toLocaleTimeString() : '') + (message ? ' · ' + message : '');
+      sub.textContent = (S.lastOk ? t('since', new Date(S.lastOk).toLocaleTimeString(t('locale'))) : '') + (message ? ' · ' + message : '');
     }
   }
 
