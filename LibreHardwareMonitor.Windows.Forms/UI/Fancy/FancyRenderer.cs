@@ -297,7 +297,7 @@ public static class FancyRenderer
             foreach (var (text, at) in ringLabels)
             {
                 float lw = Fui.Measure(text, Small(u), "Medium", 0.6f * u);
-                using (SKPaint plate = Fui.Fill(Bg.WithAlpha(0.88f)))
+                using (SKPaint plate = Fui.Fill(Bg.WithAlpha(0.72f)))
                     c.DrawRect(new SKRect(at.X - lw - 4 * u, at.Y - Small(u) - 1 * u, at.X + 4 * u, at.Y + 5 * u), plate);
                 Fui.Text(c, text, at.X, at.Y, Small(u), Dim, "Medium", SKTextAlign.Right, 0.6f * u);
             }
@@ -520,7 +520,8 @@ public static class FancyRenderer
             int perRow = cores <= 6 ? cores : cores <= 12 ? 6 : 8;
             float cellGap = 5 * u;
             float cell = (col.Width - (perRow - 1) * cellGap) / perRow;
-            float cellH = Math.Max(34, 34 * u);
+            // a bit flatter in small layouts, so the charts further down keep their height
+            float cellH = Math.Max(28, 34 * u);
             for (int k = 0; k < cores; k++)
             {
                 float cx = col.Left + (k % perRow) * (cell + cellGap);
@@ -826,11 +827,16 @@ public static class FancyRenderer
             var rc = new SKPoint(col.Left + ringR + 4 * u, y + ringR + 6 * u);
             // the ring shows the reserve that is left: full = plenty of room, empty = at the limit
             double reserve = 1 - m.ThermalRatio;
+            // with a part missing (no CPU temperature) the ring is dashed: the reserve is not the whole picture
+            bool partial = double.IsNaN(m.CpuTemp);
             using (SKPaint track = Fui.Stroke(TrackStrong, 7 * u))
                 c.DrawCircle(rc, ringR, track);
             using (SKPaint arc = Fui.Stroke(HeatColor(m.ThermalRatio), 7 * u))
             {
-                arc.StrokeCap = SKStrokeCap.Round;
+                if (partial)
+                    arc.PathEffect = SKPathEffect.CreateDash(new[] { 9 * u, 5 * u }, 0);
+                else
+                    arc.StrokeCap = SKStrokeCap.Round;
                 DrawArc(c, rc, ringR, -90, (float)(reserve * 360), arc);
             }
             string k = double.IsNaN(m.ThermalHeadroom) ? "n/a" : m.ThermalHeadroom.ToString("0", Inv) + " K";
@@ -873,7 +879,7 @@ public static class FancyRenderer
         {
             // labels keep at least 28 px apart; the grid lines in between stay
             int every = 1;
-            while (r.Height * step * every / (max - min) < 28 * u && every < 10)
+            while (r.Height * step * every / (max - min) < 22 * u && every < 10)
                 every++;
             int k = 0;
             for (double v = min; v <= max + step / 2; v += step, k++)

@@ -170,8 +170,9 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
                     for (int x = rect.Left + 12; x < rect.Right - 4; x += 6, k++)
                         g.DrawLine(scale, x, rect.Bottom - (k % 5 == 0 ? 6 : 4), x, rect.Bottom - 2);
                 }
+                // short tick at the column edge, below the text line (not a pipe next to the next title)
                 using (var cap = new Pen(SciFiColors.Accent))
-                    g.DrawLine(cap, rect.Right - 1, rect.Top + 5, rect.Right - 1, rect.Bottom - 5);
+                    g.DrawLine(cap, rect.Right - 1, rect.Bottom - 6, rect.Right - 1, rect.Bottom - 1);
             };
 
             TreeViewAdv.CustomColumnTextRenderFunc = (g, rect, font, text) =>

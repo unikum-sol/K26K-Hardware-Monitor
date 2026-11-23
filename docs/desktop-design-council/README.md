@@ -220,3 +220,28 @@ Fancy dashboard
 Both
 - One number format: the Windows locale everywhere (grid, plot legend, header, Fancy; scenario files are converted when loaded).
 - The header stress cell shows `20 / 100`; the state is only in the pill.
+
+## Round 5: scores
+
+| | M1 Opus | M2 Sonnet | M3 Sonnet | M4 Haiku |
+| --- | :-: | :-: | :-: | :-: |
+| Overall | **9** | **9** | **9** | 8 |
+| Sci-Fi | **9** | **9** | **9** | 8 |
+| Fancy | **9** | **9** | **9** | **9** |
+
+M1 to M3 confirmed their 9 without regressions. **Remaining criticism**
+
+1. M4: the HUD language stops at the frame; inside, the grid still reads like a dense table. A segment line at the group heads or a fine scale between groups would continue it.
+2. M1: the column caps next to VALUE, MIN and MAX look like stray pipe characters.
+3. Optional: ACTIVITY still low at 1366 px; POWER shows only 0, 200, 400 there; the orbit label plates compete a little with the rings; the full headroom ring looks "all fine" although the CPU is missing.
+
+## Round 6: changes
+
+Sci-Fi main window
+- Every group row (`LOAD // 14`) ends in a segmented scale line across the grid, with a brighter mark every sixth segment, so the HUD language runs through the grid.
+- Column caps are short ticks below the text line.
+
+Fancy dashboard
+- Flatter core cells in small layouts and labels on the power scale from 22 px apart: more chart height and one more scale step at 1366 px.
+- Orbit label plates at 72 % opacity.
+- The headroom ring is dashed when a part (the CPU temperature) is missing.

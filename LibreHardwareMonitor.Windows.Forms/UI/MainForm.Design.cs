@@ -569,6 +569,14 @@ public sealed partial class MainForm
             {
                 using var tick = new Pen(Color.FromArgb(170, SciFiColors.Accent));
                 e.Graphics.DrawLine(tick, r.Left + 1, r.Top + r.Height / 2, r.Left + 7, r.Top + r.Height / 2);
+
+                // group rows end in a segmented scale line, so the HUD language continues inside the grid
+                int from = e.RowRect.Left + 8;
+                using var segment = new Pen(Color.FromArgb(70, SciFiColors.Accent));
+                using var major = new Pen(Color.FromArgb(150, SciFiColors.Accent));
+                int y = r.Bottom - 2, k = 0;
+                for (int x = from; x < r.Right - 8; x += 8, k++)
+                    e.Graphics.DrawLine(k % 6 == 0 ? major : segment, x, y, x + 4, y);
             }
             return;
         }
