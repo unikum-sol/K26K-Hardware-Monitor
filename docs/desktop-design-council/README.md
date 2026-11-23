@@ -242,6 +242,29 @@ Sci-Fi main window
 - Column caps are short ticks below the text line.
 
 Fancy dashboard
-- Flatter core cells in small layouts and labels on the power scale from 22 px apart: more chart height and one more scale step at 1366 px.
+- Flatter core cells in small layouts: more chart height at 1366 px. (The power scale labels may now be 22 px apart; at 1366 px the scope is still too short for a fourth label, see round 6 scores.)
 - Orbit label plates at 72 % opacity.
 - The headroom ring is dashed when a part (the CPU temperature) is missing.
+
+## Round 6: scores
+
+| | M1 Opus | M2 Sonnet | M3 Sonnet | M4 Haiku |
+| --- | :-: | :-: | :-: | :-: |
+| Overall | **9** | **9** | **9** | 8 |
+| Sci-Fi | **9** | **9** | **9** | 8 |
+| Fancy | **9** | **9** | **9** | **9** |
+
+M1 to M3 confirmed without regressions; M3 checked that the group lines do not make the grid restless. M1 warned that brighter group lines would compete with the meters. **Remaining criticism (M4)**
+
+1. The group scale lines are very fine; the grid still reads like a table at first glance. Stronger marks every sixth segment, more weight for the column heads.
+2. The state plate under the core is small next to the stress number.
+3. Not changed on purpose: the power scale at 1366 px keeps three labels (0, 200, 400), there is no room for a fourth without crowding; M1 rated it as not necessary. The load meters in the grid already turn orange from 70 % and pink from 90 %; the window captures only show an idle system.
+
+## Round 7: changes
+
+Sci-Fi main window
+- The group scale lines get a short vertical tick every sixth segment: more structure without extra brightness (the balance between M1 and M4).
+- Column heads 9.25 pt bold in `#B4C8D4` instead of 8.5 pt in the dim color.
+
+Fancy dashboard
+- State plate text 15 px (13.5 px × scale).

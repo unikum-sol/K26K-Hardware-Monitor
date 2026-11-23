@@ -393,7 +393,7 @@ public static class FancyRenderer
 
         // too small a core: the full state goes on a plate right below the core, never shortened or squeezed;
         // a dark margin around the plate keeps the energy lines clear of the text
-        float plateSize = Body(u);
+        float plateSize = Math.Max(15f, 13.5f * u);
         float sw = Fui.Measure(state, plateSize, "Bold", 0.6f * u) + 18 * u;
         float top = cp.Y + r + 12 * u;
         var plate = new SKRect(cp.X - sw / 2, top, cp.X + sw / 2, top + plateSize + 12 * u);
@@ -871,7 +871,7 @@ public static class FancyRenderer
         double lo = values.Length > 0 ? values.Min() : 0, hi = values.Length > 0 ? values.Max() : 100;
         double margin = Math.Max(5, (hi - lo) * 0.2);
         // at most four scale lines, fewer when the scope is short (at least 30 px between labels)
-        int lines = Math.Max(2, Math.Min(4, (int)(r.Height / (30 * u))));
+        int lines = Math.Max(3, Math.Min(4, (int)(r.Height / (24 * u))));
         double step = NiceStep((hi - lo + 2 * margin) / lines);
         double min = Math.Max(0, Math.Floor((lo - margin) / step) * step);
         double max = Math.Max(min + step * 2, Math.Ceiling((hi + margin) / step) * step);

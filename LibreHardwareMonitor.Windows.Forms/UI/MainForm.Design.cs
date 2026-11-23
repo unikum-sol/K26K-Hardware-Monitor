@@ -576,7 +576,12 @@ public sealed partial class MainForm
                 using var major = new Pen(Color.FromArgb(150, SciFiColors.Accent));
                 int y = r.Bottom - 2, k = 0;
                 for (int x = from; x < r.Right - 8; x += 8, k++)
+                {
                     e.Graphics.DrawLine(k % 6 == 0 ? major : segment, x, y, x + 4, y);
+                    // every sixth segment carries a short tick: structure without extra brightness
+                    if (k % 6 == 0)
+                        e.Graphics.DrawLine(major, x, y - 3, x, y);
+                }
             }
             return;
         }

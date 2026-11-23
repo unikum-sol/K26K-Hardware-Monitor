@@ -62,7 +62,8 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
         };
 
         private static Font _headerFont;
-        private static Font HeaderFont => _headerFont ??= FontManager.CreateFont(8.5f, FontStyle.Bold);
+        private static Font HeaderFont => _headerFont ??= FontManager.CreateFont(9.25f, FontStyle.Bold);
+        private static readonly Color HeaderText = ColorTranslator.FromHtml("#B4C8D4");
 
         public SciFiTheme() : base("scifi", "Sci-Fi") { }
 
@@ -180,7 +181,7 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
                 Font header = HeaderFont;
                 int indent = string.Equals(text, "Value", System.StringComparison.OrdinalIgnoreCase) ? ValueHeaderIndent : 0;
                 var r = new Rectangle(rect.Left + 4 + indent, rect.Top, rect.Width - 4 - indent, rect.Height);
-                TextRenderer.DrawText(g, text?.ToUpperInvariant() ?? string.Empty, header, r, SciFiColors.Dim,
+                TextRenderer.DrawText(g, text?.ToUpperInvariant() ?? string.Empty, header, r, HeaderText,
                                       TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
             };
 
