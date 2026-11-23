@@ -63,7 +63,7 @@ public static class FancyRenderer
     public static readonly SKColor TrackStrong = Fui.Hex("#4A7A64");
 
     private const double BootSeconds = 2.6;
-    private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
+    private static readonly CultureInfo Inv = CultureInfo.CurrentCulture;
 
     // Type scale: sizes grow with the window, but never below the legible minimum (in pixels).
     private static float Micro(float u) => Math.Max(12f, 10f * u);
@@ -197,6 +197,7 @@ public static class FancyRenderer
 
         // orbit rings with ticks and labels
         string[] ringNames = { "ORBIT A // COMPUTE", "ORBIT B // PERIPHERY", "ORBIT C // FIELD" };
+        var ringLabels = new List<(string Text, SKPoint At)>();
         for (int i = 0; i < orbits.Length && still; i++)
         {
             float r = orbits[i];
@@ -218,7 +219,7 @@ public static class FancyRenderer
             // ring label just outside the ring, left of the top, where no node sits (only when there is room)
             double la = -97 * Math.PI / 180;
             if (maxR >= 270)
-                Fui.Text(c, ringNames[i], cp.X + (float)Math.Cos(la) * (r + 6 * u), cp.Y + (float)Math.Sin(la) * (r + 6 * u), Small(u), Dim, "Medium", SKTextAlign.Right, 0.6f * u);
+                ringLabels.Add((ringNames[i], new SKPoint(cp.X + (float)Math.Cos(la) * (r + 6 * u), cp.Y + (float)Math.Sin(la) * (r + 6 * u))));
         }
 
         // nodes
@@ -291,7 +292,17 @@ public static class FancyRenderer
         }
 
         if (still)
+        {
+            // ring labels on a dark plate above the energy lines, so no line runs through the text
+            foreach (var (text, at) in ringLabels)
+            {
+                float lw = Fui.Measure(text, Small(u), "Medium", 0.6f * u);
+                using (SKPaint plate = Fui.Fill(Bg.WithAlpha(0.88f)))
+                    c.DrawRect(new SKRect(at.X - lw - 4 * u, at.Y - Small(u) - 1 * u, at.X + 4 * u, at.Y + 5 * u), plate);
+                Fui.Text(c, text, at.X, at.Y, Small(u), Dim, "Medium", SKTextAlign.Right, 0.6f * u);
+            }
             DrawCore(c, cp, coreR, u, m, t, o, ease);
+        }
 
         foreach (var node in nodes)
             DrawNode(c, node.Tile, node.P, node.R, node.Color, node.Angle, area, u, m, t, o);
@@ -369,25 +380,30 @@ public static class FancyRenderer
 
         // the same wording as the header and the state strip; smaller or shorter when the core is small
         string state = (m.State is "THERMAL" or "LOAD" ? "▲ " : "● ") + SystemMetrics.StateLabel(m.State);
+        // the place is chosen per layout with the longest state, so the label never jumps when the state changes
         float room = Chord(r * 0.5f);
         float stateSize = Small(u), stateSpacing = 0.8f * u;
-        if (Fui.Measure(state, stateSize, "Bold", stateSpacing) > room)
+        if (Fui.Measure("▲ THERMAL LIMIT", stateSize, "Bold", stateSpacing) > room)
             stateSpacing = 0;
-        if (Fui.Measure(state, stateSize, "Bold", stateSpacing) <= room)
+        if (Fui.Measure("▲ THERMAL LIMIT", stateSize, "Bold", stateSpacing) <= room)
         {
             Fui.Text(c, state, cp.X, cp.Y + r * 0.5f, stateSize, col, "Bold", SKTextAlign.Center, stateSpacing);
             return;
         }
 
-        // too small a core: the full state goes on a plate right below the core, never shortened or squeezed
-        float sw = Fui.Measure(state, stateSize, "Bold") + 14 * u;
+        // too small a core: the full state goes on a plate right below the core, never shortened or squeezed;
+        // a dark margin around the plate keeps the energy lines clear of the text
+        float plateSize = Body(u);
+        float sw = Fui.Measure(state, plateSize, "Bold", 0.6f * u) + 18 * u;
         float top = cp.Y + r + 12 * u;
-        var plate = new SKRect(cp.X - sw / 2, top, cp.X + sw / 2, top + stateSize + 10 * u);
+        var plate = new SKRect(cp.X - sw / 2, top, cp.X + sw / 2, top + plateSize + 12 * u);
         using (SKPaint back = Fui.Fill(Bg))
-            c.DrawRect(plate, back);
-        using (SKPaint frame = Fui.Stroke(col.WithAlpha(0.7f), u))
+            c.DrawRect(SKRect.Inflate(plate, 5 * u, 4 * u), back);
+        using (SKPaint fill = Fui.Fill(col.WithAlpha(0.08f)))
+            c.DrawRect(plate, fill);
+        using (SKPaint frame = Fui.Stroke(col.WithAlpha(0.8f), u))
             c.DrawRect(plate, frame);
-        Fui.Text(c, state, cp.X, plate.Bottom - 6 * u, stateSize, col, "Bold", SKTextAlign.Center);
+        Fui.Text(c, state, cp.X, plate.Bottom - 7 * u, plateSize, col, "Bold", SKTextAlign.Center, 0.6f * u);
     }
 
     private static void DrawNode(SKCanvas c, HardwareTile tile, SKPoint p, float r, SKColor col, double angle, SKRect area, float u, DashboardModel m, double t, FancyOptions o)
@@ -626,9 +642,15 @@ public static class FancyRenderer
             if (!compact)
                 y = ky + 10 * u;
 
-            var box = new SKRect(col.Left, y, col.Right, col.Bottom);
+            // in short columns the scale stands left of the chart, like in POWER, and never covers a curve
+            var box = new SKRect(col.Left + (compact ? 34 * u : 0), y, col.Right, col.Bottom);
             using (SKPaint back = Fui.Fill(Panel.WithAlpha(0.8f)))
                 c.DrawRect(box, back);
+            if (compact)
+            {
+                Fui.Text(c, scale.ToString("0", Inv) + "%", box.Left - 6 * u, box.Top + Micro(u), Micro(u), Dim, "Medium", SKTextAlign.Right);
+                Fui.Text(c, "0", box.Left - 6 * u, box.Bottom, Micro(u), Dim, "Medium", SKTextAlign.Right);
+            }
             using (SKPaint grid = Fui.Stroke(Rule, u))
             {
                 for (int g = 1; g < 4; g++)
@@ -637,16 +659,6 @@ public static class FancyRenderer
             Fui.Brackets(c, box, 8 * u, Accent.WithAlpha(0.7f), u);
             Spark(c, box, m.CpuHistory, scale, Accent, u, false);
             Spark(c, box, m.GpuHistory, scale, Data, u, true);
-            if (compact)
-            {
-                // the scale sits on a plate in the top left corner instead of the heading
-                string scaleText = "0 TO " + scale.ToString("0", Inv) + " %";
-                float sw = Fui.Measure(scaleText, Micro(u), "Medium") + 12 * u;
-                var plate = new SKRect(box.Left + 6 * u, box.Top + 6 * u, box.Left + 6 * u + sw, box.Top + 10 * u + Micro(u) + 2 * u);
-                using (SKPaint back = Fui.Fill(Bg))
-                    c.DrawRect(plate, back);
-                Fui.Text(c, scaleText, plate.MidX, plate.Bottom - 5 * u, Micro(u), Dim, "Medium", SKTextAlign.Center);
-            }
 
             // a young session has only a few samples; say so instead of leaving the box looking empty
             double seconds = m.CpuHistory.Length * m.UpdateIntervalMs / 1000.0;
@@ -961,7 +973,7 @@ public static class FancyRenderer
             bool active = m.State == state;
             SKColor col = state == "THERMAL" ? Alarm : state == "LOAD" ? Data : Accent;
             string text = (active ? "● " : "○ ") + SystemMetrics.StateLabel(state);
-            float tw = Fui.Text(c, text, x, y, Small(u), active ? col : Dim.WithAlpha(0.7f), "Bold", spacing: 0.6f * u);
+            float tw = Fui.Text(c, text, x, y, Small(u), active ? col : Dim, "Bold", spacing: 0.6f * u);
             if (active)
             {
                 using SKPaint underline = Fui.Stroke(col, 2 * u);

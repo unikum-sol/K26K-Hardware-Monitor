@@ -56,6 +56,7 @@ public sealed partial class MainForm
     private Font _sciFiTreeFont;
     private Font _sciFiMenuFont;
     private Font _sciFiLabelFont;
+    private Font _sciFiValueFont;
     private int _classicRowHeight;
     private Padding _classicPanel1Padding;
     private Padding _classicPanel2Padding;
@@ -503,6 +504,9 @@ public sealed partial class MainForm
                     e.TextColor = SciFiColors.Cool;
                 else
                     e.TextColor = ValueColor(sensor.SensorType);
+                // live readings in bold, so the eye finds them first; missing ones stay regular and dim
+                if (!dead)
+                    e.Font = _sciFiValueFont ??= FontManager.CreateFont(9.75f, FontStyle.Bold);
             }
             else if (sender == nodeTextBoxMin || sender == nodeTextBoxMax)
             {
@@ -601,17 +605,27 @@ public sealed partial class MainForm
         using (var frame = new Pen(SciFiColors.Rule))
             g.DrawRectangle(frame, r);
 
-        const int len = 10;
+        // corner brackets (outer strong, inner fine), like the frames of a HUD instrument
+        const int len = 18;
         using (var bracket = new Pen(SciFiColors.Accent, 2))
+        using (var inner = new Pen(Color.FromArgb(140, SciFiColors.Accent)))
         {
-            g.DrawLine(bracket, r.Left, r.Top, r.Left + len, r.Top);
-            g.DrawLine(bracket, r.Left, r.Top, r.Left, r.Top + len);
-            g.DrawLine(bracket, r.Right, r.Top, r.Right - len, r.Top);
-            g.DrawLine(bracket, r.Right, r.Top, r.Right, r.Top + len);
-            g.DrawLine(bracket, r.Left, r.Bottom, r.Left + len, r.Bottom);
-            g.DrawLine(bracket, r.Left, r.Bottom, r.Left, r.Bottom - len);
-            g.DrawLine(bracket, r.Right, r.Bottom, r.Right - len, r.Bottom);
-            g.DrawLine(bracket, r.Right, r.Bottom, r.Right, r.Bottom - len);
+            foreach ((int x, int y, int dx, int dy) in new[] { (r.Left, r.Top, 1, 1), (r.Right, r.Top, -1, 1), (r.Left, r.Bottom, 1, -1), (r.Right, r.Bottom, -1, -1) })
+            {
+                g.DrawLine(bracket, x, y, x + dx * len, y);
+                g.DrawLine(bracket, x, y, x, y + dy * len);
+                g.DrawLine(inner, x + dx * 4, y + dy * 4, x + dx * 10, y + dy * 4);
+                g.DrawLine(inner, x + dx * 4, y + dy * 4, x + dx * 4, y + dy * 10);
+            }
+        }
+
+        // ports in the middle of every edge
+        using (var port = new Pen(SciFiColors.Accent, 2))
+        {
+            int mx = (r.Left + r.Right) / 2, my = (r.Top + r.Bottom) / 2;
+            g.DrawLine(port, mx - 14, r.Bottom, mx + 14, r.Bottom);
+            g.DrawLine(port, r.Left, my - 14, r.Left, my + 14);
+            g.DrawLine(port, r.Right, my - 14, r.Right, my + 14);
         }
 
         string label = content == treeView ? "SENSOR GRID" : "TELEMETRY PLOT";

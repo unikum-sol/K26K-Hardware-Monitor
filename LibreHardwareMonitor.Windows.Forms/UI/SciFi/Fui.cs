@@ -172,16 +172,16 @@ public static class Fui
         if (double.IsNaN(celsius))
             return "n/a";
         double v = fahrenheit ? celsius * 1.8 + 32 : celsius;
-        return v.ToString("0", CultureInfo.InvariantCulture) + (fahrenheit ? "°F" : "°C");
+        return v.ToString("0", CultureInfo.CurrentCulture) + (fahrenheit ? "°F" : "°C");
     }
 
-    public static string Pct(double value) => double.IsNaN(value) ? "n/a" : value.ToString("0", CultureInfo.InvariantCulture) + "%";
+    public static string Pct(double value) => double.IsNaN(value) ? "n/a" : value.ToString("0", CultureInfo.CurrentCulture) + "%";
 
-    public static string Watts(double value) => double.IsNaN(value) ? "n/a" : value.ToString(value < 10 ? "0.0" : "0", CultureInfo.InvariantCulture) + " W";
+    public static string Watts(double value) => double.IsNaN(value) ? "n/a" : value.ToString(value < 10 ? "0.0" : "0", CultureInfo.CurrentCulture) + " W";
 
     public static string Duration(double seconds)
     {
         var t = TimeSpan.FromSeconds(Math.Max(0, seconds));
-        return ((int)t.TotalHours).ToString("00", CultureInfo.InvariantCulture) + ":" + t.Minutes.ToString("00", CultureInfo.InvariantCulture) + ":" + t.Seconds.ToString("00", CultureInfo.InvariantCulture);
+        return ((int)t.TotalHours).ToString("00", CultureInfo.CurrentCulture) + ":" + t.Minutes.ToString("00", CultureInfo.CurrentCulture) + ":" + t.Seconds.ToString("00", CultureInfo.CurrentCulture);
     }
 }

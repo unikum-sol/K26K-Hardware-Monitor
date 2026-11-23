@@ -186,3 +186,37 @@ Both
 - The state pill shows the dot only (`● HIGH LOAD`).
 - With Windows high contrast on, the first start uses Classic (system colors); Reduced Motion already follows the Windows animation setting.
 - Renders at 125 % added (`fancy-load-125pct.png`, `header-load-125pct.png`).
+
+## Round 4: scores
+
+| | M1 Opus | M2 Sonnet | M3 Sonnet | M4 Haiku |
+| --- | :-: | :-: | :-: | :-: |
+| Overall | **9** | **9** | **9** | 8 |
+| Sci-Fi | **9** | **9** | **9** | 7 |
+| Fancy | **9** | **9** | **9** | 8 |
+
+Three members passed both designs. **Remaining criticism** (polish from M1 to M3, blockers from M4)
+
+1. M4: the Sci-Fi grid still reads like a styled table; it needs HUD elements that continue the header (corner marks, edge accents). Values, min and max look small and gray in the window capture; the plot is half empty because the capture only had 45 s of data.
+2. ACTIVITY at 1366 px: the scale plate covers the start of the curves.
+3. The core state jumps between two places when the state changes (inside the core or on the plate below); the plate sits on an energy line; orbit labels cross energy lines.
+4. `HIGH LOAD` twice in the header (stress cell and pill); decimal comma in the grid but decimal point in Fancy.
+5. Inactive states in the state strip only just above 4.5:1.
+
+## Round 5: changes
+
+Sci-Fi main window
+- Frames: larger double corner brackets (outer 2 px, inner fine) and a port in the middle of each edge.
+- Column header row with a fine scale along the bottom (like the HUD ruler) and an accent cap at each column edge.
+- Live readings in bold; missing readings stay regular and dim, so working sensors stand out at a glance.
+- Captures now wait 75 s, so the plot shows a full minute.
+
+Fancy dashboard
+- The state position is fixed per layout using the longest state (`▲ THERMAL LIMIT`), so it never jumps; the plate is larger (13 px), filled, framed and has a dark margin that keeps the energy lines away from the text.
+- Orbit labels sit on dark plates above the energy lines.
+- ACTIVITY in short columns: the scale stands left of the chart like in POWER (`100%`, `0`), never on a curve.
+- Inactive states in the state strip in the full dim color.
+
+Both
+- One number format: the Windows locale everywhere (grid, plot legend, header, Fancy; scenario files are converted when loaded).
+- The header stress cell shows `20 / 100`; the state is only in the pill.

@@ -62,9 +62,9 @@ public sealed class HudStatusBar : SkiaView
         var items = new (string Label, string Value, SKColor Color)[]
         {
             ("SESSION", Fui.Duration(m.SessionSeconds), HudHeader.Text),
-            ("SENSORS", m.SensorCount.ToString(CultureInfo.InvariantCulture), HudHeader.Text),
-            ("INTERVAL", (m.UpdateIntervalMs / 1000.0).ToString("0.##", CultureInfo.InvariantCulture) + " S", HudHeader.Text),
-            ("ENERGY", m.SessionEnergyWh.ToString("0.0", CultureInfo.InvariantCulture) + " WH", HudHeader.Text),
+            ("SENSORS", m.SensorCount.ToString(CultureInfo.CurrentCulture), HudHeader.Text),
+            ("INTERVAL", (m.UpdateIntervalMs / 1000.0).ToString("0.##", CultureInfo.CurrentCulture) + " S", HudHeader.Text),
+            ("ENERGY", m.SessionEnergyWh.ToString("0.0", CultureInfo.CurrentCulture) + " WH", HudHeader.Text),
             ("WEB", m.WebServerOnline ? m.WebServer : "OFFLINE", m.WebServerOnline ? HudHeader.Accent : HudHeader.Dim)
         };
 

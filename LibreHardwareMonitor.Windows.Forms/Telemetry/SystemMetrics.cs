@@ -63,8 +63,8 @@ public sealed class SystemMetrics
         var m = new DashboardModel
         {
             Machine = machine,
-            Clock = DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture),
-            Date = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            Clock = DateTime.Now.ToString("HH:mm:ss", CultureInfo.CurrentCulture),
+            Date = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.CurrentCulture),
             SessionSeconds = _session.Elapsed.TotalSeconds,
             Fahrenheit = fahrenheit,
             UpdateIntervalMs = intervalMs,
@@ -230,13 +230,13 @@ public sealed class SystemMetrics
 
         // ---------- Tiles for the orbital view ----------
         if (cpu != null)
-            m.Tiles.Add(new HardwareTile { Kind = "cpu", Label = "CPU", Name = cpu.Name, Load = m.CpuLoad, Temp = m.CpuTemp, TempLimit = m.CpuTempLimit, Power = m.CpuPower, Detail = double.IsNaN(m.CpuClock) ? "" : (m.CpuClock / 1000).ToString("0.00", CultureInfo.InvariantCulture) + " GHz" });
+            m.Tiles.Add(new HardwareTile { Kind = "cpu", Label = "CPU", Name = cpu.Name, Load = m.CpuLoad, Temp = m.CpuTemp, TempLimit = m.CpuTempLimit, Power = m.CpuPower, Detail = double.IsNaN(m.CpuClock) ? "" : (m.CpuClock / 1000).ToString("0.00", CultureInfo.CurrentCulture) + " GHz" });
         if (gpu != null)
-            m.Tiles.Add(new HardwareTile { Kind = "gpu", Label = "GPU", Name = gpu.Name, Load = m.GpuLoad, Temp = m.GpuTemp, TempLimit = m.GpuTempLimit, Power = m.GpuPower, Detail = double.IsNaN(m.GpuMemoryLoad) ? "" : "VRAM " + m.GpuMemoryLoad.ToString("0", CultureInfo.InvariantCulture) + " %" });
+            m.Tiles.Add(new HardwareTile { Kind = "gpu", Label = "GPU", Name = gpu.Name, Load = m.GpuLoad, Temp = m.GpuTemp, TempLimit = m.GpuTempLimit, Power = m.GpuPower, Detail = double.IsNaN(m.GpuMemoryLoad) ? "" : "VRAM " + m.GpuMemoryLoad.ToString("0", CultureInfo.CurrentCulture) + " %" });
         if (memory != null)
-            m.Tiles.Add(new HardwareTile { Kind = "ram", Label = "RAM", Name = "Memory", Load = m.MemoryLoad, Detail = double.IsNaN(m.MemoryUsedGb) ? "" : m.MemoryUsedGb.ToString("0.0", CultureInfo.InvariantCulture) + " / " + m.MemoryTotalGb.ToString("0", CultureInfo.InvariantCulture) + " GB" });
+            m.Tiles.Add(new HardwareTile { Kind = "ram", Label = "RAM", Name = "Memory", Load = m.MemoryLoad, Detail = double.IsNaN(m.MemoryUsedGb) ? "" : m.MemoryUsedGb.ToString("0.0", CultureInfo.CurrentCulture) + " / " + m.MemoryTotalGb.ToString("0", CultureInfo.CurrentCulture) + " GB" });
         if (board.Length > 0)
-            m.Tiles.Add(new HardwareTile { Kind = "fans", Label = "FANS", Name = m.FanCount + " fans", Load = m.FanEffort, Temp = boardTemp, TempLimit = 80, Detail = double.IsNaN(m.FanAvgRpm) ? "" : m.FanAvgRpm.ToString("0", CultureInfo.InvariantCulture) + " RPM" });
+            m.Tiles.Add(new HardwareTile { Kind = "fans", Label = "FANS", Name = m.FanCount + " fans", Load = m.FanEffort, Temp = boardTemp, TempLimit = 80, Detail = double.IsNaN(m.FanAvgRpm) ? "" : m.FanAvgRpm.ToString("0", CultureInfo.CurrentCulture) + " RPM" });
         if (drives > 0)
             m.Tiles.Add(new HardwareTile { Kind = "disk", Label = "DISK", Name = drives + " drives", Load = m.DiskActivity, Temp = m.DiskMaxTemp, TempLimit = 75, Detail = Rate(m.DiskRead + m.DiskWrite) });
         if (all.Any(h => h.HardwareType == HardwareType.Network))
@@ -274,12 +274,12 @@ public sealed class SystemMetrics
         if (double.IsNaN(bytesPerSecond))
             return "-";
         if (bytesPerSecond >= 1073741824)
-            return (bytesPerSecond / 1073741824).ToString("0.0", CultureInfo.InvariantCulture) + " GB/s";
+            return (bytesPerSecond / 1073741824).ToString("0.0", CultureInfo.CurrentCulture) + " GB/s";
         if (bytesPerSecond >= 1048576)
-            return (bytesPerSecond / 1048576).ToString("0.0", CultureInfo.InvariantCulture) + " MB/s";
+            return (bytesPerSecond / 1048576).ToString("0.0", CultureInfo.CurrentCulture) + " MB/s";
         if (bytesPerSecond >= 1024)
-            return (bytesPerSecond / 1024).ToString("0", CultureInfo.InvariantCulture) + " KB/s";
-        return bytesPerSecond.ToString("0", CultureInfo.InvariantCulture) + " B/s";
+            return (bytesPerSecond / 1024).ToString("0", CultureInfo.CurrentCulture) + " KB/s";
+        return bytesPerSecond.ToString("0", CultureInfo.CurrentCulture) + " B/s";
     }
 
     // 1 KB/s = 0 %, 125 MB/s (1 Gbit/s) = 100 %, logarithmic in between.

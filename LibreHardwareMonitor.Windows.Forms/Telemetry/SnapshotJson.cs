@@ -40,7 +40,15 @@ public static class SnapshotJson
 
     public static DashboardModel Load(string path)
     {
-        return JsonSerializer.Deserialize<DashboardModel>(File.ReadAllText(path), Options);
+        DashboardModel model = JsonSerializer.Deserialize<DashboardModel>(File.ReadAllText(path), Options);
+        // tile details were formatted when the snapshot was recorded; show them with this machine's decimal separator
+        string separator = System.Globalization.CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
+        foreach (HardwareTile tile in model.Tiles)
+        {
+            if (!string.IsNullOrEmpty(tile.Detail))
+                tile.Detail = System.Text.RegularExpressions.Regex.Replace(tile.Detail, @"(?<=\d)[.,](?=\d)", separator);
+        }
+        return model;
     }
 
     /// <summary>

@@ -163,6 +163,15 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
                     g.DrawLine(pen, rect.Left, rect.Bottom - 1, rect.Right, rect.Bottom - 1);
                 using (var tick = new Pen(SciFiColors.Accent))
                     g.DrawLine(tick, rect.Left, rect.Bottom - 1, rect.Left + 6, rect.Bottom - 1);
+                // a fine scale along the bottom of the header row, like the ruler in the HUD header
+                using (var scale = new Pen(SciFiColors.RuleStrong))
+                {
+                    int k = 0;
+                    for (int x = rect.Left + 12; x < rect.Right - 4; x += 6, k++)
+                        g.DrawLine(scale, x, rect.Bottom - (k % 5 == 0 ? 6 : 4), x, rect.Bottom - 2);
+                }
+                using (var cap = new Pen(SciFiColors.Accent))
+                    g.DrawLine(cap, rect.Right - 1, rect.Top + 5, rect.Right - 1, rect.Bottom - 5);
             };
 
             TreeViewAdv.CustomColumnTextRenderFunc = (g, rect, font, text) =>

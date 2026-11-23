@@ -176,10 +176,10 @@ public sealed class HudHeader : SkiaView
         {
             ("CPU", Fui.Pct(m.CpuLoad), Fui.Temp(m.CpuTemp, m.Fahrenheit), m.CpuLoad / 100, m.CpuTemp >= m.CpuTempLimit - 10),
             ("GPU", Fui.Pct(m.GpuLoad), Fui.Temp(m.GpuTemp, m.Fahrenheit), m.GpuLoad / 100, m.GpuTemp >= m.GpuTempLimit - 10),
-            ("RAM", Fui.Pct(m.MemoryLoad), double.IsNaN(m.MemoryUsedGb) ? "" : m.MemoryUsedGb.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " GB", m.MemoryLoad / 100, m.MemoryLoad >= 90),
+            ("RAM", Fui.Pct(m.MemoryLoad), double.IsNaN(m.MemoryUsedGb) ? "" : m.MemoryUsedGb.ToString("0.0", System.Globalization.CultureInfo.CurrentCulture) + " GB", m.MemoryLoad / 100, m.MemoryLoad >= 90),
             ("PWR", Fui.Watts(m.TotalPower), m.OtherPowerEstimated ? "EST" : "MEAS", Math.Min(1, m.TotalPower / 600), false),
             ("NET", SystemMetrics.Rate(m.NetDown), "▲ " + SystemMetrics.Rate(m.NetUp), double.NaN, false),
-            ("STRESS", m.Stress.ToString("0", System.Globalization.CultureInfo.InvariantCulture), SystemMetrics.StateLabel(m.State), m.Stress / 100, false)
+            ("STRESS", m.Stress.ToString("0", System.Globalization.CultureInfo.CurrentCulture), "/ 100", m.Stress / 100, false)
         };
 
         float cellW = (right - left) / cells.Length;
@@ -194,7 +194,8 @@ public sealed class HudHeader : SkiaView
             SKColor valueColor = stress ? (m.State == "NOMINAL" ? Data : stateColor) : cell.Hot ? Alarm : Data;
             SKColor barColor = stress ? stateColor : cell.Hot ? Alarm : Accent;
             float vw = Fui.Text(c, cell.Value, cx, 48 * k, valueSize, valueColor, "Medium");
-            Fui.Text(c, cell.Sub, cx + vw + 6 * k, 48 * k, 10.5f * k, stress && m.State != "NOMINAL" ? stateColor : Dim, "Medium");
+            // (the state itself is only in the pill on the right, not repeated here)
+            Fui.Text(c, cell.Sub, cx + vw + 6 * k, 48 * k, 10.5f * k, Dim, "Medium");
             if (!double.IsNaN(cell.Fraction))
                 Fui.Segments(c, new SKRect(cx, 54 * k, cx + Math.Min(cellW - 16 * k, 92 * k), 56.5f * k), cell.Fraction, 12,
                              barColor, Rule, 1.5f * k);

@@ -77,7 +77,7 @@ function Capture($design, $file) {
   # wait until the main window exists, then give it time to collect data
   $h = [IntPtr]::Zero
   for ($i = 0; $i -lt 60 -and $h -eq [IntPtr]::Zero; $i++) { Start-Sleep -Seconds 1; $p.Refresh(); $h = $p.MainWindowHandle }
-  Start-Sleep -Seconds 45
+  Start-Sleep -Seconds 75
   $p.Refresh()
   $h = $p.MainWindowHandle
   if ($h -ne [IntPtr]::Zero) {
