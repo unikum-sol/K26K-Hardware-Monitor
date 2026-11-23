@@ -510,7 +510,8 @@ public sealed partial class MainForm
             }
             else if (sender == nodeTextBoxMin || sender == nodeTextBoxMax)
             {
-                e.TextColor = SciFiColors.Dim;
+                // min and max one step brighter than the dim color (still clearly below the live value)
+                e.TextColor = dead ? SciFiColors.Dim : ColorTranslator.FromHtml("#A8BCC8");
                 if (dead)
                     e.Text = "-";
             }
@@ -526,8 +527,10 @@ public sealed partial class MainForm
         }
         else if (node is TypeNode && sender == nodeTextBoxText)
         {
-            e.TextColor = SciFiColors.Dim;
-            e.Text = e.Text.ToUpperInvariant() + "  //  " + node.Nodes.Count(n => n.IsVisible).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            // group heads read as section labels: bold, brighter, the count in a bracket chip
+            e.TextColor = ColorTranslator.FromHtml("#B4C8D4");
+            e.Font = _sciFiValueFont ??= FontManager.CreateFont(9.75f, FontStyle.Bold);
+            e.Text = e.Text.ToUpperInvariant() + "  [" + node.Nodes.Count(n => n.IsVisible).ToString("00", System.Globalization.CultureInfo.InvariantCulture) + "]";
         }
     }
 
@@ -567,6 +570,9 @@ public sealed partial class MainForm
                 e.Graphics.DrawLine(rail, r.Left + 1, r.Top, r.Left + 1, r.Bottom);
             if (e.Node.Tag is TypeNode)
             {
+                // a faint band of its own, fading out to the right, makes every group head a section
+                using (var band = new System.Drawing.Drawing2D.LinearGradientBrush(r, Color.FromArgb(255, 10, 30, 38), SciFiColors.Panel, System.Drawing.Drawing2D.LinearGradientMode.Horizontal))
+                    e.Graphics.FillRectangle(band, r.Left + 2, r.Top, r.Width - 2, r.Height - 1);
                 using var tick = new Pen(Color.FromArgb(170, SciFiColors.Accent));
                 e.Graphics.DrawLine(tick, r.Left + 1, r.Top + r.Height / 2, r.Left + 7, r.Top + r.Height / 2);
 

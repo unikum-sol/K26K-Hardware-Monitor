@@ -268,3 +268,22 @@ Sci-Fi main window
 
 Fancy dashboard
 - State plate text 15 px (13.5 px × scale).
+
+## Round 7: scores
+
+| | M1 Opus | M2 Sonnet | M3 Sonnet | M4 Haiku |
+| --- | :-: | :-: | :-: | :-: |
+| Overall | **9** | **9** | **9** | 8 |
+| Sci-Fi | **9** | **9** | **9** | 8 |
+| Fancy | **9** | **9** | **9** | **9** |
+
+**Remaining criticism (M4)**: the group rows (`LOAD`, `TEMPERATURES`, `VOLTAGES`) carry too little weight of their own; a stronger group head with the count in a frame or on a band would carry the HUD language into the grid. MIN and MAX are still small. M1: at 1366 px the 15 px state plate is a little heavy next to the core.
+
+## Round 8: changes
+
+Sci-Fi main window
+- Group heads as section labels: bold, `#B4C8D4`, the count as a chip (`LOAD  [14]`) and a band of their own that fades out to the right, below it the segmented scale line.
+- MIN and MAX one step brighter (`#A8BCC8`) as long as the sensor reports values.
+
+Fancy dashboard
+- State plate text 14 px in small layouts, 15 px and more from 1600 px.

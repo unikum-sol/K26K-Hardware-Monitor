@@ -393,7 +393,8 @@ public static class FancyRenderer
 
         // too small a core: the full state goes on a plate right below the core, never shortened or squeezed;
         // a dark margin around the plate keeps the energy lines clear of the text
-        float plateSize = Math.Max(15f, 13.5f * u);
+        // 14 px in small layouts, so the plate does not get heavier than the core itself
+        float plateSize = u < 1 ? 14f : Math.Max(15f, 13.5f * u);
         float sw = Fui.Measure(state, plateSize, "Bold", 0.6f * u) + 18 * u;
         float top = cp.Y + r + 12 * u;
         var plate = new SKRect(cp.X - sw / 2, top, cp.X + sw / 2, top + plateSize + 12 * u);
