@@ -287,3 +287,19 @@ Sci-Fi main window
 
 Fancy dashboard
 - State plate text 14 px in small layouts, 15 px and more from 1600 px.
+
+## Round 8: scores
+
+| | M1 Opus | M2 Sonnet | M3 Sonnet | M4 Haiku |
+| --- | :-: | :-: | :-: | :-: |
+| Overall | **9** | **9** | **9** | 8 |
+| Sci-Fi | **9** | **9** | **9** | 8 |
+| Fancy | **9** | **9** | **9** | **9** |
+
+**Remaining criticism (M4)**: the group heads are a clear step forward, but device rows (Ryzen, Gigabyte board) look like group rows; a clearly separated device head with edges of its own would show the hierarchy within five seconds. M2 (optional): the meter thresholds are not explained anywhere on screen.
+
+## Round 9: changes
+
+Sci-Fi main window
+- Device rows as heads of their own: 10.5 pt bold accent text with the sensor count (`AMD RYZEN 5 7600  // 48 CH`), an accent line on top that fades out to the right, a fine line below and a notch at the right end. The hierarchy now reads device, group, sensor.
+- The status strip explains the meter colors: `METER  < 70 %  ≥ 70 %  ≥ 90 %` (only when there is room).

@@ -57,6 +57,23 @@ public sealed partial class MainForm
     private Font _sciFiMenuFont;
     private Font _sciFiLabelFont;
     private Font _sciFiValueFont;
+    private Font _sciFiDeviceFont;
+
+    // visible sensors below a device (sub-devices included)
+    private static int CountSensors(Node node)
+    {
+        int count = 0;
+        foreach (Node child in node.Nodes)
+        {
+            if (!child.IsVisible)
+                continue;
+            if (child is SensorNode)
+                count++;
+            else if (!(child is HardwareNode))
+                count += CountSensors(child);
+        }
+        return count;
+    }
     private int _classicRowHeight;
     private Padding _classicPanel1Padding;
     private Padding _classicPanel2Padding;
@@ -522,8 +539,11 @@ public sealed partial class MainForm
         }
         else if (node is HardwareNode && sender == nodeTextBoxText)
         {
+            // devices are the top level of the hierarchy: larger bold accent text, the sensor count after a slash
             e.TextColor = SciFiColors.Accent;
-            e.Text = e.Text.ToUpperInvariant();
+            e.Font = _sciFiDeviceFont ??= FontManager.CreateFont(10.5f, FontStyle.Bold);
+            int channels = CountSensors(node);
+            e.Text = e.Text.ToUpperInvariant() + (channels > 0 ? "   // " + channels.ToString(System.Globalization.CultureInfo.InvariantCulture) + " CH" : "");
         }
         else if (node is TypeNode && sender == nodeTextBoxText)
         {
@@ -596,6 +616,16 @@ public sealed partial class MainForm
             e.Graphics.FillRectangle(band, r);
         using (var bar = new SolidBrush(SciFiColors.Accent))
             e.Graphics.FillRectangle(bar, r.Left, r.Top + 3, 3, r.Height - 6);
+
+        // device rows have edges of their own: an accent line on top that fades out, a fine line below,
+        // and a notch at the right end, so the hierarchy (device, group, sensor) shows at a glance
+        using (var top = new System.Drawing.Drawing2D.LinearGradientBrush(new Rectangle(r.Left, r.Top, Math.Max(1, r.Width), 1), Color.FromArgb(220, SciFiColors.Accent), Color.FromArgb(0, SciFiColors.Accent), System.Drawing.Drawing2D.LinearGradientMode.Horizontal))
+            e.Graphics.FillRectangle(top, r.Left, r.Top, r.Width, 1);
+        using (var bottom = new Pen(Color.FromArgb(90, SciFiColors.Accent)))
+            e.Graphics.DrawLine(bottom, r.Left, r.Bottom - 1, r.Right, r.Bottom - 1);
+        int right = treeView.ClientSize.Width - 6;
+        using (var notch = new SolidBrush(Color.FromArgb(160, SciFiColors.Accent)))
+            e.Graphics.FillRectangle(notch, right - 18, r.Top + r.Height / 2 - 1, 18, 2);
     }
 
     // Each kind of value gets its own color, so the grid reads like an instrument panel.

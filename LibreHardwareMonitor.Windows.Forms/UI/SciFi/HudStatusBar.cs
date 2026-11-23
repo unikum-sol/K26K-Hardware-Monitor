@@ -79,6 +79,25 @@ public sealed class HudStatusBar : SkiaView
                 break;
         }
 
-        Fui.Text(c, "K26K // " + (string.IsNullOrEmpty(m.Machine) ? "LOCAL" : m.Machine.ToUpperInvariant()), width - 16 * k, y, 10 * k, HudHeader.Dim, "Medium", SKTextAlign.Right, 0.8f * k);
+        string machine = "K26K // " + (string.IsNullOrEmpty(m.Machine) ? "LOCAL" : m.Machine.ToUpperInvariant());
+        float machineW = Fui.Text(c, machine, width - 16 * k, y, 10 * k, HudHeader.Dim, "Medium", SKTextAlign.Right, 0.8f * k);
+
+        // legend for the meter colors in the grid (only when there is room)
+        var legend = new (string Label, SKColor Color)[] { ("< 70 %", Fui.Hex("#00E0E8")), ("≥ 70 %", Fui.Hex("#F0A030")), ("≥ 90 %", Fui.Hex("#FF40A0")) };
+        float legendW = Fui.Measure("METER", 9.5f * k, "Bold", 0.8f * k) + 10 * k;
+        foreach (var item in legend)
+            legendW += 14 * k + Fui.Measure(item.Label, 10 * k, "Medium") + 14 * k;
+        float lx = width - 16 * k - machineW - 34 * k - legendW;
+        if (lx > x + 10 * k)
+        {
+            lx += Fui.Text(c, "METER", lx, y, 9.5f * k, HudHeader.Dim, "Bold", spacing: 0.8f * k) + 10 * k;
+            foreach (var item in legend)
+            {
+                using (SKPaint sw = Fui.Fill(item.Color))
+                    c.DrawRect(lx, y - 7 * k, 9 * k, 5 * k, sw);
+                lx += 14 * k;
+                lx += Fui.Text(c, item.Label, lx, y, 10 * k, HudHeader.Dim, "Medium") + 14 * k;
+            }
+        }
     }
 }
