@@ -72,6 +72,9 @@ public static class Fui
         return font.MeasureText(text) + spacing * Math.Max(0, text.Length - 1);
     }
 
+    /// <summary>Text glow on or off (all drawing happens on the UI thread; the Fancy renderer sets it per frame).</summary>
+    public static bool GlowEnabled { get; set; } = true;
+
     /// <summary>Draws text with optional letter spacing and glow. Returns the drawn width.</summary>
     public static float Text(SKCanvas canvas, string text, float x, float y, float size, SKColor color, string weight = "Regular",
                              SKTextAlign align = SKTextAlign.Left, float spacing = 0, float glow = 0)
@@ -83,7 +86,7 @@ public static class Fui
         float width = Measure(text, size, weight, spacing);
         float start = align == SKTextAlign.Center ? x - width / 2 : align == SKTextAlign.Right ? x - width : x;
 
-        if (glow > 0)
+        if (glow > 0 && GlowEnabled)
         {
             using SKPaint halo = Fill(color.WithAlpha(0.55f));
             halo.MaskFilter = Blur(glow);

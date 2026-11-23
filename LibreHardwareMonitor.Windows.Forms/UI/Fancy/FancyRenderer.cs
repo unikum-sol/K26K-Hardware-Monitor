@@ -39,6 +39,8 @@ public sealed class FancyOptions
     /// <summary>Seconds since the dashboard was opened (drives the boot sequence).</summary>
     public double SinceOpen { get; set; } = 10;
     public bool ExitHover { get; set; }
+    /// <summary>Soft glow around lines, nodes and text; off = calm, flat look for long viewing.</summary>
+    public bool Glow { get; set; } = true;
 }
 
 /// <summary>
@@ -64,7 +66,7 @@ public static class FancyRenderer
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
     // Type scale: sizes grow with the window, but never below the legible minimum (in pixels).
-    private static float Micro(float u) => Math.Max(11f, 9.5f * u);
+    private static float Micro(float u) => Math.Max(12f, 10f * u);
     private static float Small(float u) => Math.Max(12f, 10.5f * u);
     private static float Body(float u) => Math.Max(13f, 11.5f * u);
     private static float Value(float u) => Math.Max(16f, 15f * u);
@@ -80,6 +82,19 @@ public static class FancyRenderer
     /// <summary>Renders one frame. Returns the hit area of the exit button.</summary>
     public static SKRect Render(SKCanvas c, int width, int height, float dpiScale, DashboardModel m, double t, FancyOptions o)
     {
+        Fui.GlowEnabled = o.Glow;
+        try
+        {
+            return RenderFrame(c, width, height, m, t, o);
+        }
+        finally
+        {
+            Fui.GlowEnabled = true;
+        }
+    }
+
+    private static SKRect RenderFrame(SKCanvas c, int width, int height, DashboardModel m, double t, FancyOptions o)
+    {
         float u = Math.Max(0.8f, Math.Min(2.6f, Math.Min(width / 1600f, height / 900f)));
         double boot = o.ReducedMotion ? 1 : Math.Min(1, o.SinceOpen / BootSeconds);
         float ease = (float)(1 - Math.Pow(1 - boot, 3));
@@ -88,7 +103,7 @@ public static class FancyRenderer
         if (still)
         {
             c.Clear(Bg);
-            DrawBackground(c, width, height, u);
+            DrawBackground(c, width, height, u, o.Glow);
         }
 
         float top = 40 * u, bottom = height - 46 * u;
@@ -127,7 +142,7 @@ public static class FancyRenderer
 
     // ------------------------------------------------------------------ background
 
-    private static void DrawBackground(SKCanvas c, int w, int h, float u)
+    private static void DrawBackground(SKCanvas c, int w, int h, float u, bool glowOn)
     {
         using (SKPaint grid = Fui.Stroke(Accent.WithAlpha(0.03f)))
         {
@@ -138,6 +153,8 @@ public static class FancyRenderer
                 c.DrawLine(0, y, w, y, grid);
         }
 
+        if (!glowOn)
+            return;
         using var glow = new SKPaint
         {
             Shader = SKShader.CreateRadialGradient(new SKPoint(w / 2f, h / 2f), Math.Max(w, h) * 0.55f,
@@ -241,9 +258,10 @@ public static class FancyRenderer
             using SKPath path = Bloom(cp, node.P, coreR + 8 * u, node.R, node.Angle);
             if (still)
             {
-                using (SKPaint halo = Fui.Stroke(node.Color.WithAlpha(0.18f), thick * 2.6f))
+                if (o.Glow)
                 {
-                    halo.MaskFilter = Fui.Blur(3 * u);
+                    using SKPaint halo = Fui.Stroke(node.Color.WithAlpha(0.14f), thick * 2.2f);
+                    halo.MaskFilter = Fui.Blur(2.5f * u);
                     c.DrawPath(path, halo);
                 }
                 using SKPaint line = Fui.Stroke(node.Color.WithAlpha(0.85f), thick);
@@ -299,8 +317,11 @@ public static class FancyRenderer
         SKColor col = StressColor(m.Stress);
         double pulse = o.ReducedMotion || o.Layer != FancyLayer.All ? 0.5 : 0.5 + 0.5 * Math.Sin(t * 1.6);
 
-        using (var glow = new SKPaint { Shader = SKShader.CreateRadialGradient(cp, r * 1.9f, new[] { col.WithAlpha(0.2f + 0.06f * (float)pulse), SKColors.Transparent }, null, SKShaderTileMode.Clamp) })
-            c.DrawCircle(cp, r * 1.9f, glow);
+        if (o.Glow)
+        {
+            using var glow = new SKPaint { Shader = SKShader.CreateRadialGradient(cp, r * 1.7f, new[] { col.WithAlpha(0.16f + 0.05f * (float)pulse), SKColors.Transparent }, null, SKShaderTileMode.Clamp) };
+            c.DrawCircle(cp, r * 1.7f, glow);
+        }
 
         using (SKPaint face = Fui.Fill(Panel))
             c.DrawCircle(cp, r, face);
@@ -309,9 +330,10 @@ public static class FancyRenderer
         using (SKPaint track = Fui.Stroke(Track, 6 * u))
             c.DrawCircle(cp, r - 7 * u, track);
         float sweep = (float)(Math.Max(0, Math.Min(100, m.Stress)) / 100 * 360 * ease);
-        using (SKPaint halo = Fui.Stroke(col.WithAlpha(0.45f), 8 * u))
+        if (o.Glow)
         {
-            halo.MaskFilter = Fui.Blur(4 * u);
+            using SKPaint halo = Fui.Stroke(col.WithAlpha(0.35f), 8 * u);
+            halo.MaskFilter = Fui.Blur(3 * u);
             halo.StrokeCap = SKStrokeCap.Round;
             DrawArc(c, cp, r - 7 * u, -90, sweep, halo);
         }
@@ -337,9 +359,11 @@ public static class FancyRenderer
             c.DrawCircle(cp, r + 7 * u, outer);
 
         Fui.Text(c, r >= 90 ? "SYSTEM STRESS" : "STRESS", cp.X, cp.Y - r * 0.34f, Micro(u), Dim, "Bold", SKTextAlign.Center, 0.8f * u);
-        Fui.Text(c, Math.Round(m.Stress).ToString(Inv), cp.X, cp.Y + r * 0.2f, r * 0.6f, col, "Bold", SKTextAlign.Center, 0, 5 * u);
-        string state = m.State == "THERMAL" ? (r >= 90 ? "▲ THERMAL LIMIT" : "▲ THERMAL") : m.State == "LOAD" ? (r >= 90 ? "▲ HIGH LOAD" : "▲ LOAD") : "● NOMINAL";
-        Fui.Text(c, state, cp.X, cp.Y + r * 0.5f, Small(u), col, "Bold", SKTextAlign.Center, 0.8f * u);
+        Fui.Text(c, m.Stress.ToString("0", Inv), cp.X, cp.Y + r * 0.2f, r * 0.6f, col, "Bold", SKTextAlign.Center, 0, 4 * u);
+        // the same wording as the header and the state strip; a smaller font when the core is small
+        string state = (m.State is "THERMAL" or "LOAD" ? "▲ " : "● ") + SystemMetrics.StateLabel(m.State);
+        float stateSize = Fui.Measure(state, Small(u), "Bold", 0.8f * u) <= r * 1.6f ? Small(u) : Micro(u);
+        Fui.Text(c, state, cp.X, cp.Y + r * 0.5f, stateSize, col, "Bold", SKTextAlign.Center, stateSize == Small(u) ? 0.8f * u : 0);
     }
 
     private static void DrawNode(SKCanvas c, HardwareTile tile, SKPoint p, float r, SKColor col, double angle, SKRect area, float u, DashboardModel m, double t, FancyOptions o)
@@ -356,9 +380,10 @@ public static class FancyRenderer
         if (o.Layer == FancyLayer.Motion)
             return;
 
-        using (SKPaint halo = Fui.Fill(col.WithAlpha(0.22f)))
+        if (o.Glow)
         {
-            halo.MaskFilter = Fui.Blur(6 * u);
+            using SKPaint halo = Fui.Fill(col.WithAlpha(0.18f));
+            halo.MaskFilter = Fui.Blur(4.5f * u);
             c.DrawCircle(p, r, halo);
         }
         using (SKPaint face = Fui.Fill(Panel))
@@ -376,7 +401,7 @@ public static class FancyRenderer
         string value = tile.Kind is "net" or "disk" ? tile.Detail : Fui.Pct(tile.Load);
         var subParts = new List<string>();
         if (!double.IsNaN(tile.Temp))
-            subParts.Add(Fui.Temp(tile.Temp, m.Fahrenheit) + TempTag(tile));
+            subParts.Add(TempPrefix(tile) + Fui.Temp(tile.Temp, m.Fahrenheit) + TempTag(tile));
         if (!double.IsNaN(tile.Power))
             subParts.Add(Fui.Watts(tile.Power));
         if (tile.Kind is not ("net" or "disk") && !string.IsNullOrEmpty(tile.Detail))
@@ -470,11 +495,12 @@ public static class FancyRenderer
                     c.DrawRect(cx, cy, cell, cellH, back);
                 using (SKPaint fill = Fui.Fill(color.WithAlpha(0.22f + 0.33f * f)))
                     c.DrawRect(cx, cy + cellH - fillH, cell, fillH, fill);
-                using (SKPaint border = Fui.Stroke(color.WithAlpha(0.75f), u))
+                bool warm = load >= 60 && load < 85;
+                using (SKPaint border = Fui.Stroke(color.WithAlpha(warm ? 1f : 0.75f), warm ? 1.75f * u : u))
                 {
                     // warm cells get a dashed border, hot cells a triangle: the state does not rely on color
-                    if (load >= 60 && load < 85)
-                        border.PathEffect = SKPathEffect.CreateDash(new[] { 3 * u, 2 * u }, 0);
+                    if (warm)
+                        border.PathEffect = SKPathEffect.CreateDash(new[] { 4 * u, 2.5f * u }, 0);
                     c.DrawRect(cx, cy, cell, cellH, border);
                 }
                 Fui.Text(c, "C" + (k + 1).ToString(Inv), cx + 4 * u, cy + Micro(u), Micro(u), Text, "Medium");
@@ -520,9 +546,43 @@ public static class FancyRenderer
 
         // activity history fills the rest of the column
         float rest = col.Bottom - y;
-        if (rest > 90 * u && m.CpuHistory.Length > 1)
+        if (rest > 110 * u && m.CpuHistory.Length > 1)
         {
-            y = Header(c, "ACTIVITY // " + Math.Max(1, m.CpuHistory.Length * m.UpdateIntervalMs / 60000).ToString(Inv) + " MIN", "CPU  GPU", col.Left, col.Right, y, u);
+            // the scale follows the data, so idle curves do not stick to the floor; the top value is in the header
+            double peak = Math.Max(m.CpuHistory.Max(), m.GpuHistory.Length > 0 ? m.GpuHistory.Max() : 0);
+            double scale = Math.Min(100, Math.Max(10, NiceStep(peak * 1.25 / 2) * 2));
+            if (scale < peak)
+                scale = 100;
+            string span = Math.Max(1, m.CpuHistory.Length * m.UpdateIntervalMs / 60000).ToString(Inv);
+            y = Header(c, "ACTIVITY // " + span + " MIN", "SCALE 0 TO " + scale.ToString("0", Inv) + " %", col.Left, col.Right, y, u);
+
+            // legend with line samples and the numbers behind the curves
+            float ky = y + Micro(u);
+            float kx = col.Left;
+            foreach (var (label, values, color, dashed) in new[] { ("CPU", m.CpuHistory, Accent, false), ("GPU", m.GpuHistory, Data, true) })
+            {
+                if (values.Length == 0)
+                    continue;
+                string stats = "AVG " + values.Average().ToString("0", Inv) + "  MAX " + values.Max().ToString("0", Inv);
+                float need = 26 * u + Fui.Measure(label, Micro(u), "Bold") + 8 * u + Fui.Measure(stats, Micro(u), "Medium");
+                if (kx > col.Left && kx + need > col.Right)
+                {
+                    // no room left on this line: continue below
+                    kx = col.Left;
+                    ky += Micro(u) + 8 * u;
+                }
+                using (SKPaint sample = Fui.Stroke(color, 2 * u))
+                {
+                    if (dashed)
+                        sample.PathEffect = SKPathEffect.CreateDash(new[] { 5 * u, 3 * u }, 0);
+                    c.DrawLine(kx, ky - 4 * u, kx + 20 * u, ky - 4 * u, sample);
+                }
+                kx += 26 * u;
+                kx += Fui.Text(c, label, kx, ky, Micro(u), Text, "Bold") + 8 * u;
+                kx += Fui.Text(c, stats, kx, ky, Micro(u), Dim, "Medium") + 18 * u;
+            }
+            y = ky + 10 * u;
+
             var box = new SKRect(col.Left, y, col.Right, col.Bottom);
             using (SKPaint back = Fui.Fill(Panel.WithAlpha(0.8f)))
                 c.DrawRect(box, back);
@@ -532,13 +592,25 @@ public static class FancyRenderer
                     c.DrawLine(box.Left, box.Top + box.Height * g / 4, box.Right, box.Top + box.Height * g / 4, grid);
             }
             Fui.Brackets(c, box, 8 * u, Accent.WithAlpha(0.7f), u);
-            Spark(c, box, m.CpuHistory, Accent, u, false);
-            Spark(c, box, m.GpuHistory, Data, u, true);
-            Fui.Text(c, "100%", box.Left + 5 * u, box.Top + Micro(u) + 3 * u, Micro(u), Dim, "Medium");
+            Spark(c, box, m.CpuHistory, scale, Accent, u, false);
+            Spark(c, box, m.GpuHistory, scale, Data, u, true);
+
+            // a young session has only a few samples; say so instead of leaving the box looking empty
+            double seconds = m.CpuHistory.Length * m.UpdateIntervalMs / 1000.0;
+            if (seconds < 60)
+            {
+                // top right corner on its own plate, so it never sits on a curve
+                string note = "COLLECTING " + seconds.ToString("0", Inv) + " S";
+                float nw = Fui.Measure(note, Micro(u), "Medium") + 12 * u;
+                var plate = new SKRect(box.Right - 6 * u - nw, box.Top + 6 * u, box.Right - 6 * u, box.Top + 10 * u + Micro(u) + 2 * u);
+                using (SKPaint back = Fui.Fill(Bg))
+                    c.DrawRect(plate, back);
+                Fui.Text(c, note, plate.MidX, plate.Bottom - 5 * u, Micro(u), Dim, "Medium", SKTextAlign.Center);
+            }
         }
     }
 
-    private static void Spark(SKCanvas c, SKRect r, double[] values, SKColor color, float u, bool dashed)
+    private static void Spark(SKCanvas c, SKRect r, double[] values, double scale, SKColor color, float u, bool dashed)
     {
         if (values.Length < 2)
             return;
@@ -546,7 +618,7 @@ public static class FancyRenderer
         for (int i = 0; i < values.Length; i++)
         {
             float x = r.Left + r.Width * i / (values.Length - 1);
-            float y = r.Bottom - 3 * u - (float)(Math.Max(0, Math.Min(100, values[i])) / 100) * (r.Height - 6 * u);
+            float y = r.Bottom - 3 * u - (float)(Math.Max(0, Math.Min(scale, values[i])) / scale) * (r.Height - 6 * u);
             if (i == 0)
                 path.MoveTo(x, y);
             else
@@ -571,7 +643,7 @@ public static class FancyRenderer
 
         float x = r.Left + 10 * u;
         Fui.Text(c, tile.Label, x, r.Top + Micro(u) + 5 * u, Micro(u), Dim, "Bold", spacing: 0.8f * u);
-        string temp = !double.IsNaN(tile.Temp) ? Fui.Temp(tile.Temp, m.Fahrenheit) + TempTag(tile) : "";
+        string temp = !double.IsNaN(tile.Temp) ? TempPrefix(tile) + Fui.Temp(tile.Temp, m.Fahrenheit) + TempTag(tile) : "";
         Fui.Text(c, temp, r.Right - 9 * u, r.Top + Micro(u) + 5 * u, Micro(u), col, "Bold", SKTextAlign.Right);
 
         string value = tile.Kind == "power" ? Fui.Watts(tile.Power) : tile.Kind is "net" ? tile.Detail.Replace("↓ ", "") : Fui.Pct(tile.Load);
@@ -653,12 +725,12 @@ public static class FancyRenderer
         if (m.OtherPowerEstimated)
         {
             y += Micro(u) + 8 * u;
-            Fui.Text(c, "REST = BOARD + RAM + DRIVES + FANS (ESTIMATE)", col.Left, y, Micro(u), Dim, "Medium");
+            Fui.Text(c, "REST ≈ BOARD + RAM + DRIVES + FANS", col.Left, y, Micro(u), Dim, "Medium");
         }
         y += 20 * u;
 
         // stress composition: the four parts of the index
-        y = Header(c, "STRESS COMPOSITION", Math.Round(m.Stress).ToString(Inv) + " / 100", col.Left, col.Right, y, u);
+        y = Header(c, "STRESS COMPOSITION", m.Stress.ToString("0", Inv) + " / 100", col.Left, col.Right, y, u);
         var comp = new[]
         {
             ("LOAD  max CPU/GPU", StressWeights.Load, m.StressLoad, Accent),
@@ -674,7 +746,10 @@ public static class FancyRenderer
             Fui.Bar(c, new SKRect(col.Left, y + Micro(u) + 5 * u, col.Right, y + Micro(u) + 9 * u), value / 100, color, TrackStrong);
             y += Math.Max(26, 25 * u);
         }
-        Fui.Text(c, "INDEX = WEIGHTED SUM, AT LEAST " + StressWeights.Floor.ToString("0.0", Inv) + " × MAX(LOAD, HEAT)", col.Left, y + Micro(u) - 2 * u, Micro(u), Dim, "Medium");
+        // two short lines, so the explanation never runs past the column
+        Fui.Text(c, "INDEX = SUM OF WEIGHT × PART", col.Left, y + Micro(u) - 2 * u, Micro(u), Dim, "Medium");
+        y += Micro(u) + 4 * u;
+        Fui.Text(c, "BUT AT LEAST " + (StressWeights.Floor * 100).ToString("0", Inv) + "% OF MAX(LOAD, HEAT)", col.Left, y + Micro(u) - 2 * u, Micro(u), Dim, "Medium");
         y += Micro(u) + 14 * u;
 
         // thermal headroom ring: distance of the hottest component to its limit
@@ -722,16 +797,24 @@ public static class FancyRenderer
         // the scale follows the data (with some margin), so the curve uses the full height
         double lo = values.Length > 0 ? values.Min() : 0, hi = values.Length > 0 ? values.Max() : 100;
         double margin = Math.Max(5, (hi - lo) * 0.2);
-        double step = NiceStep((hi - lo + 2 * margin) / 4);
+        // at most four scale lines, fewer when the scope is short (at least 30 px between labels)
+        int lines = Math.Max(2, Math.Min(4, (int)(r.Height / (30 * u))));
+        double step = NiceStep((hi - lo + 2 * margin) / lines);
         double min = Math.Max(0, Math.Floor((lo - margin) / step) * step);
         double max = Math.Max(min + step * 2, Math.Ceiling((hi + margin) / step) * step);
         using (SKPaint grid = Fui.Stroke(Rule, u))
         {
-            for (double v = min; v <= max + step / 2; v += step)
+            // labels keep at least 28 px apart; the grid lines in between stay
+            int every = 1;
+            while (r.Height * step * every / (max - min) < 28 * u && every < 10)
+                every++;
+            int k = 0;
+            for (double v = min; v <= max + step / 2; v += step, k++)
             {
                 float gy = r.Bottom - (float)((v - min) / (max - min)) * r.Height;
                 c.DrawLine(r.Left, gy, r.Right, gy, grid);
-                Fui.Text(c, v.ToString("0", Inv), r.Left - 6 * u, gy + 4 * u, Micro(u), Dim, "Medium", SKTextAlign.Right);
+                if (k % every == 0)
+                    Fui.Text(c, v.ToString("0", Inv), r.Left - 6 * u, gy + 4 * u, Micro(u), Dim, "Medium", SKTextAlign.Right);
             }
         }
 
@@ -822,7 +905,7 @@ public static class FancyRenderer
         {
             bool active = m.State == state;
             SKColor col = state == "THERMAL" ? Alarm : state == "LOAD" ? Data : Accent;
-            string text = (active ? "● " : "○ ") + state;
+            string text = (active ? "● " : "○ ") + SystemMetrics.StateLabel(state);
             float tw = Fui.Text(c, text, x, y, Small(u), active ? col : Dim.WithAlpha(0.7f), "Bold", spacing: 0.6f * u);
             if (active)
             {
@@ -897,10 +980,14 @@ public static class FancyRenderer
         c.DrawPath(path, paint);
     }
 
+    // the fans tile shows the board temperature; say so
+    private static string TempPrefix(HardwareTile tile) => tile.Kind == "fans" ? "BOARD " : "";
+
     private static SKColor HeatColor(HardwareTile tile)
     {
+        // fans working hard is not an alarm (they only weigh 0.10 in the stress index); only heat colors them
         if (double.IsNaN(tile.Temp))
-            return LoadColor(Nz(tile.Load));
+            return tile.Kind == "fans" ? Cool : LoadColor(Nz(tile.Load));
         return HeatColor((tile.Temp - 30) / Math.Max(1, tile.TempLimit - 30));
     }
 
@@ -917,22 +1004,7 @@ public static class FancyRenderer
     private static string NA(string value) => value == "--" ? "n/a" : value;
 
     // "NVIDIA GeForce RTX 2070 SUPER" -> "RTX 2070 SUPER", long board names cut at a word boundary
-    private static string ShortName(HardwareTile tile)
-    {
-        string name = tile.Name ?? "";
-        foreach (string prefix in new[] { "NVIDIA GeForce ", "NVIDIA ", "AMD Radeon ", "AMD Ryzen ", "Intel(R) Core(TM) ", "Intel ", "AMD " })
-        {
-            if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            {
-                name = (prefix.StartsWith("AMD Ryzen") ? "Ryzen " : "") + name.Substring(prefix.Length);
-                break;
-            }
-        }
-        if (name.Length <= 18)
-            return name;
-        int cut = name.LastIndexOf(' ', 18);
-        return cut > 6 ? name.Substring(0, cut) : name.Substring(0, 18);
-    }
+    private static string ShortName(HardwareTile tile) => SystemMetrics.ShortHardwareName(tile.Name);
 
     private static string Shorten(string text, int max)
     {

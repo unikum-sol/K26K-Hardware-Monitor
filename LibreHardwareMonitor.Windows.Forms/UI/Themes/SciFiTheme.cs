@@ -30,7 +30,7 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
         public static readonly Color PanelRaised = ColorTranslator.FromHtml("#0E1A22");
         public static readonly Color Text = ColorTranslator.FromHtml("#D8E8F0");
         public static readonly Color Dim = ColorTranslator.FromHtml("#8CA3B3");
-        public static readonly Color Muted = ColorTranslator.FromHtml("#5F7584");
+        public static readonly Color Muted = ColorTranslator.FromHtml("#6E8798");
         public static readonly Color Accent = ColorTranslator.FromHtml("#00E0E8");
         public static readonly Color Data = ColorTranslator.FromHtml("#F0E040");
         public static readonly Color Cool = ColorTranslator.FromHtml("#F0A030");
@@ -68,13 +68,17 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
 
         public override bool ListedInThemeMenu => false;
         public override string PlotFontFamily => "Consolas";
-        public override double PlotStackGap => 0.035;
+        public override double PlotStackGap => 0.045;
         public override string PlotEmptyHint => "SELECT SENSORS IN THE GRID TO PLOT THEM";
         public override bool PlotUppercaseTitles => true;
         public override string PlotTimeFormat => "h:mm:ss";
         public override bool PlotAxisHeads => true;
         public override bool PlotShowLegend => true;
         public override bool PlotDashedSeparators => true;
+        public override double PlotFontSize => 12.5;
+        public override double PlotMinStrokeThickness => 1.75;
+        public override bool PlotVaryLineStyles => true;
+        public override bool PlotEndMarkers => true;
 
         public override Color BackgroundColor => SciFiColors.Background;
         public override Color ForegroundColor => SciFiColors.Text;
@@ -94,7 +98,7 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
         public override Color[] PlotColorPalette => Palette;
         public override Color PlotGridMajorColor => ColorTranslator.FromHtml("#2E4A5C");
         public override Color PlotGridMinorColor => ColorTranslator.FromHtml("#16252F");
-        public override Color PlotTextColor => SciFiColors.Dim;
+        public override Color PlotTextColor => ColorTranslator.FromHtml("#A8BCC8");
 
         public override Color ScrollbarBackground => SciFiColors.Background;
         public override Color ScrollbarTrack => SciFiColors.RuleStrong;

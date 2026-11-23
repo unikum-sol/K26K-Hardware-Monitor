@@ -148,7 +148,7 @@ public sealed class HudHeader : SkiaView
         Fui.Text(c, "FANCY  ▸", button.MidX, button.MidY + 4 * k, 11.5f * k, hover ? Bg : Accent, "Bold", SKTextAlign.Center, 1.4f * k);
 
         SKColor stateColor = m.State == "THERMAL" ? Alarm : m.State == "LOAD" ? Cool : Accent;
-        string stateText = m.State == "THERMAL" ? "THERMAL ALERT" : m.State == "LOAD" ? "HIGH LOAD" : "SYSTEM NOMINAL";
+        string stateText = m.State == "THERMAL" || m.State == "LOAD" ? "▲ " + SystemMetrics.StateLabel(m.State) : "SYSTEM NOMINAL";
         float sw = Fui.Measure(stateText, 10.5f * k, "Bold", 1.2f * k) + 30 * k;
         var state = new SKRect(button.Left - 16 * k - sw, midY - 14 * k, button.Left - 16 * k, midY + 2 * k);
         using (SKPaint p = Fui.Stroke(stateColor.WithAlpha(0.8f), 1 * k))

@@ -28,6 +28,7 @@ Render "idle" "fancy-idle-1920.png" "1920x1080"
 Render "load" "fancy-load-1920.png" "1920x1080"
 Render "load" "fancy-load-1366.png" "1366x768"
 Render "load" "fancy-load-reduced-motion-1920.png" "1920x1080" @("--reduced-motion")
+Render "load" "fancy-load-no-glow-1920.png" "1920x1080" @("--no-glow")
 Render "load" "header-load.png" "1500x64" @("--view", "header")
 # 150 % display scaling: the dashboard at 1920x1080 logical pixels and the header with scale 1.5
 Render "load" "fancy-load-150pct.png" "2880x1620"

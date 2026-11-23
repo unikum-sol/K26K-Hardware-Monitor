@@ -187,6 +187,13 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
         public virtual bool PlotAxisHeads => false;
         public virtual bool PlotShowLegend => false;
         public virtual bool PlotDashedSeparators => false;
+
+        // K26K: plot font size (NaN = OxyPlot default), minimum line width, line styles that differ
+        // per series on the same axis (not by color alone), and a marker at the newest value.
+        public virtual double PlotFontSize => double.NaN;
+        public virtual double PlotMinStrokeThickness => 0;
+        public virtual bool PlotVaryLineStyles => false;
+        public virtual bool PlotEndMarkers => false;
         public abstract Color BackgroundColor { get; }
         public abstract Color ForegroundColor { get; }
         public abstract Color HyperlinkColor { get; }

@@ -44,7 +44,7 @@ public static class SnapshotJson
     }
 
     /// <summary>
-    /// Command line: --render-snapshot &lt;in.json&gt; &lt;out.png&gt; [--view fancy|header|status] [--size 1920x1080] [--t 6] [--scale 1] [--reduced-motion]
+    /// Command line: --render-snapshot &lt;in.json&gt; &lt;out.png&gt; [--view fancy|header|status] [--size 1920x1080] [--t 6] [--scale 1] [--reduced-motion] [--no-glow]
     /// Renders a saved snapshot to a PNG file. No hardware access and no administrator rights are needed.
     /// </summary>
     public static int RenderFromCommandLine(string[] args)
@@ -61,6 +61,7 @@ public static class SnapshotJson
         double t = double.Parse(Option(args, "--t", "6"), CultureInfo.InvariantCulture);
         float scale = float.Parse(Option(args, "--scale", "1"), CultureInfo.InvariantCulture);
         bool reduced = Array.IndexOf(args, "--reduced-motion") >= 0;
+        bool glow = Array.IndexOf(args, "--no-glow") < 0;
 
         DashboardModel model = Load(input);
         using var surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
@@ -75,7 +76,7 @@ public static class SnapshotJson
                 HudStatusBar.Draw(canvas, width, height, scale, model);
                 break;
             default:
-                FancyRenderer.Render(canvas, width, height, scale, model, t, new FancyOptions { ReducedMotion = reduced, SinceOpen = t });
+                FancyRenderer.Render(canvas, width, height, scale, model, t, new FancyOptions { ReducedMotion = reduced, Glow = glow, SinceOpen = t });
                 break;
         }
 

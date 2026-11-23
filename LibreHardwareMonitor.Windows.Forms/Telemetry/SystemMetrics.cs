@@ -243,6 +243,27 @@ public sealed class SystemMetrics
         return m;
     }
 
+    /// <summary>"NVIDIA GeForce RTX 2070 SUPER" becomes "RTX 2070 SUPER"; long names are cut at a word boundary.</summary>
+    public static string ShortHardwareName(string fullName, int max = 18)
+    {
+        string name = fullName ?? "";
+        foreach (string prefix in new[] { "NVIDIA GeForce ", "NVIDIA ", "AMD Radeon ", "AMD Ryzen ", "Intel(R) Core(TM) ", "Intel ", "AMD " })
+        {
+            if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                name = (prefix.StartsWith("AMD Ryzen", StringComparison.Ordinal) ? "Ryzen " : "") + name.Substring(prefix.Length);
+                break;
+            }
+        }
+        if (name.Length <= max)
+            return name;
+        int cut = name.LastIndexOf(' ', max);
+        return cut > 6 ? name.Substring(0, cut) : name.Substring(0, max);
+    }
+
+    /// <summary>One wording for the system state everywhere (header, Fancy core, state strip).</summary>
+    public static string StateLabel(string state) => state == "THERMAL" ? "THERMAL LIMIT" : state == "LOAD" ? "HIGH LOAD" : "NOMINAL";
+
     public static string Rate(double bytesPerSecond)
     {
         if (double.IsNaN(bytesPerSecond))

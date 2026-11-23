@@ -114,3 +114,36 @@ Fancy dashboard
 Both
 - Reduced motion is on by default when Windows client area animations are off.
 - Renders at 150 % scaling added to the capture set (`*-150pct.png`).
+
+## Round 2: scores
+
+| | M1 Opus | M2 Sonnet | M3 Sonnet | M4 Haiku |
+| --- | :-: | :-: | :-: | :-: |
+| Overall | 8 | 8.5 | 8.5 | 8 |
+| Sci-Fi | 7 | 8.5 | 8 | 7 |
+| Fancy | 8 | 8.5 | 8.5 | 8 |
+
+**Shared criticism**
+
+1. Sci-Fi plot legend: a light Windows-style box on top of the curves; two entries read the same (`NVIDIA GeForce RTX 2070 SUPER GPU Core` for temperature and load); series differ by color only; no marker at the newest value; the `LOAD // %` head sits on a grid line.
+2. Sci-Fi contrast: axis numbers, `n/a`, `-` and the empty meter cells too dim; tree text and meters small; the grid looks like a styled table next to the HUD header.
+3. Fancy: the formula line is cut at 1366 and runs past the panel at 1500 px.
+4. ACTIVITY: sine-shaped sample data looks synthetic; the `100%` label sits on the curve; no line samples for CPU and GPU; idle curves stick to the floor.
+5. Consistency: stress 85 in the header but 84 in Fancy (different rounding); `▲ LOAD`, `▲ HIGH LOAD` and `HIGH LOAD` for the same state; FANS 97 % in alarm pink while the system is nominal; an unlabeled 44 °C on the fans tile.
+6. Small text (orbit labels, legend row, core labels) below 12 px; warm core border too thin; glow and pulses noticeable for long viewing; the power scale has too many labels in small windows.
+
+## Round 3: changes
+
+Sci-Fi main window
+- Plot legend below the plot (never over a curve), dark panel with an accent border, short names with the kind of value and the current reading (`RTX 2070 SUPER GPU CORE // TEMP  28.0 °C`), grouped by axis.
+- Every series on the same axis gets its own line style (solid, dash, dot, ...), lines at least 1.75 px, a dot on the newest value.
+- Axis heads sit in a gap above each stacked axis, on the dashed separator; axis text 12.5 px in `#A8BCC8`. With overlaid axes the classic rotated titles return.
+- Grid: font 9.75 pt, `n/a` and `-` in the dim color, `#4A6A82` for empty meter cells, wider and taller meters, instrument rulers and scale marks on the frames; `AXES // STACKED` instead of `STACKED // ON`.
+
+Fancy dashboard
+- Smallest text now 12 px; the stress formula on two short lines; `REST ≈ BOARD + RAM + DRIVES + FANS`.
+- ACTIVITY: line samples for CPU (solid) and GPU (dashed) with average and maximum, a scale that follows the data (`SCALE 0 TO 40 %`), and a `COLLECTING` note while a session is younger than a minute. The scenario files now contain realistic, noisy histories instead of sine waves.
+- One wording for the state everywhere: `NOMINAL`, `▲ HIGH LOAD`, `▲ THERMAL LIMIT`; the stress value rounds the same way in header and Fancy.
+- Fans are never drawn in alarm colors (fan effort is no alarm); the fans tile says `BOARD 44°C`.
+- Warm cores get a 1.75 px dashed border; the power scope labels keep at least 28 px apart.
+- Less glow (smaller radius and alpha) and a new menu option **View, Design, Glow Effects** to switch all glow off (`fancy-load-no-glow-1920.png`). Motion: node pulses at most 0.75 Hz, the core breathes at 0.25 Hz, no flashing areas.

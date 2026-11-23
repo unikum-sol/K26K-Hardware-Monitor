@@ -72,6 +72,17 @@ public sealed class FancyDashboard : SkiaView
         }
     }
 
+    public bool Glow
+    {
+        get => _options.Glow;
+        set
+        {
+            _options.Glow = value;
+            _cacheDirty = true;
+            Invalidate();
+        }
+    }
+
     public DashboardModel Model
     {
         get => _model;

@@ -35,7 +35,7 @@ public sealed class SciFiBarControl : NodeControl
 
     public static bool Active { get; set; }
 
-    public int BarWidth { get; set; } = 46;
+    public int BarWidth { get; set; } = 62;
 
     public override Size MeasureSize(TreeNodeAdv node, DrawContext context)
     {
@@ -51,7 +51,7 @@ public sealed class SciFiBarControl : NodeControl
 
         float? value = sensorNode.Sensor.Value;
         Rectangle r = context.Bounds;
-        int h = 6;
+        int h = 8;
         int y = r.Top + (r.Height - h) / 2;
         int w = BarWidth - 8;
         int cell = (w - (Segments - 1)) / Segments;
@@ -59,7 +59,7 @@ public sealed class SciFiBarControl : NodeControl
         Color on = value >= 90 ? SciFiColors.Alarm : value >= 70 ? SciFiColors.Cool : SciFiColors.Accent;
 
         using var onBrush = new SolidBrush(on);
-        using var offBrush = new SolidBrush(ColorTranslator.FromHtml("#33536A"));
+        using var offBrush = new SolidBrush(ColorTranslator.FromHtml("#4A6A82"));
         for (int i = 0; i < Segments; i++)
             context.Graphics.FillRectangle(i < lit ? onBrush : offBrush, r.Left + i * (cell + 1), y, cell, h);
     }

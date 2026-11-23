@@ -49,6 +49,7 @@ public sealed partial class MainForm
     private ToolStripMenuItem _designSciFiItem;
     private ToolStripMenuItem _fancyItem;
     private ToolStripMenuItem _reducedMotionItem;
+    private ToolStripMenuItem _fancyGlowItem;
     private ToolStripMenuItem _fancyFullscreenItem;
     private Font _classicTreeFont;
     private Font _classicMenuFont;
@@ -113,6 +114,7 @@ public sealed partial class MainForm
 
         _reducedMotionItem.Checked = _settings.GetValue("fancyReducedMotion", !ClientAreaAnimationsEnabled());
         _fancyFullscreenItem.Checked = _settings.GetValue("fancyFullscreen", false);
+        _fancyGlowItem.Checked = _settings.GetValue("fancyGlow", true);
 
         if (!_skiaAvailable || saved == "classic")
         {
@@ -168,6 +170,14 @@ public sealed partial class MainForm
         _fancyItem = new ToolStripMenuItem("Fancy Mode") { ShortcutKeyDisplayString = "F11" };
         _reducedMotionItem = new ToolStripMenuItem("Reduced Motion");
         _fancyFullscreenItem = new ToolStripMenuItem("Fancy Mode in Fullscreen");
+        _fancyGlowItem = new ToolStripMenuItem("Glow Effects");
+        _fancyGlowItem.Click += delegate
+        {
+            _fancyGlowItem.Checked = !_fancyGlowItem.Checked;
+            _settings.SetValue("fancyGlow", _fancyGlowItem.Checked);
+            if (_fancy != null)
+                _fancy.Glow = _fancyGlowItem.Checked;
+        };
 
         _designClassicItem.Click += delegate { ApplyDesign(UiDesign.Classic, true); };
         _designSciFiItem.Click += delegate { ApplyDesign(UiDesign.SciFi, true); };
@@ -185,7 +195,7 @@ public sealed partial class MainForm
             _settings.SetValue("fancyFullscreen", _fancyFullscreenItem.Checked);
         };
 
-        designMenu.DropDownItems.AddRange(new ToolStripItem[] { _designClassicItem, _designSciFiItem, new ToolStripSeparator(), _fancyItem, _reducedMotionItem, _fancyFullscreenItem });
+        designMenu.DropDownItems.AddRange(new ToolStripItem[] { _designClassicItem, _designSciFiItem, new ToolStripSeparator(), _fancyItem, _reducedMotionItem, _fancyGlowItem, _fancyFullscreenItem });
         viewMenuItem.DropDownItems.Add(new ToolStripSeparator());
         viewMenuItem.DropDownItems.Add(designMenu);
 
@@ -208,7 +218,7 @@ public sealed partial class MainForm
         SuspendLayout();
         if (mode == UiDesign.SciFi)
         {
-            _sciFiTreeFont ??= FontManager.CreateFont(9f);
+            _sciFiTreeFont ??= FontManager.CreateFont(9.75f);
             _sciFiMenuFont ??= FontManager.CreateFont(8.5f);
             _sciFiLabelFont ??= FontManager.CreateFont(8f, FontStyle.Bold);
 
@@ -344,6 +354,7 @@ public sealed partial class MainForm
             _fancy.ExitRequested += delegate { ExitFancy(); };
         }
         _fancy.ReducedMotion = _reducedMotionItem.Checked;
+        _fancy.Glow = _fancyGlowItem.Checked;
 
         SuspendLayout();
         mainMenu.Visible = false;
@@ -478,7 +489,7 @@ public sealed partial class MainForm
                 bool warm = sensor.SensorType == SensorType.Temperature && v >= 75 || SciFiBarControl.IsPercent(sensor.SensorType) && v >= 80;
                 if (dead)
                 {
-                    e.TextColor = SciFiColors.Muted;
+                    e.TextColor = SciFiColors.Dim;
                     e.Text = "n/a";
                 }
                 else if (hot)
@@ -493,7 +504,7 @@ public sealed partial class MainForm
             }
             else if (sender == nodeTextBoxMin || sender == nodeTextBoxMax)
             {
-                e.TextColor = dead ? SciFiColors.Muted : SciFiColors.Dim;
+                e.TextColor = SciFiColors.Dim;
                 if (dead)
                     e.Text = "-";
             }
@@ -577,12 +588,31 @@ public sealed partial class MainForm
         }
 
         string label = content == treeView ? "SENSOR GRID" : "TELEMETRY PLOT";
-        string meta = content == treeView ? "LIVE // " + _metrics.Current.SensorCount + " CH" : "STACKED // " + (_plotPanel.StackedAxes ? "ON" : "OFF");
+        string meta = content == treeView ? "LIVE // " + _metrics.Current.SensorCount + " CH" : "AXES // " + (_plotPanel.StackedAxes ? "STACKED" : "OVERLAID");
         TextRenderer.DrawText(g, label, _sciFiLabelFont, new Point(r.Left, r.Top - 18), SciFiColors.Accent, TextFormatFlags.NoPadding);
+        Size ls = TextRenderer.MeasureText(label, _sciFiLabelFont, Size.Empty, TextFormatFlags.NoPadding);
         Size ms = TextRenderer.MeasureText(meta, _sciFiLabelFont, Size.Empty, TextFormatFlags.NoPadding);
         TextRenderer.DrawText(g, meta, _sciFiLabelFont, new Point(r.Right - ms.Width, r.Top - 18), SciFiColors.Dim, TextFormatFlags.NoPadding);
         using (var tick = new Pen(SciFiColors.Accent))
             g.DrawLine(tick, r.Left, r.Top - 4, r.Left + 28, r.Top - 4);
+
+        // instrument ruler between the label and the meta text, like the header ruler
+        using (var minor = new Pen(SciFiColors.RuleStrong))
+        using (var major = new Pen(Color.FromArgb(150, SciFiColors.Accent)))
+        {
+            int from = r.Left + ls.Width + 16, to = r.Right - ms.Width - 16;
+            for (int x = from, k = 0; x < to; x += 8, k++)
+                g.DrawLine(k % 5 == 0 ? major : minor, x, r.Top - (k % 5 == 0 ? 11 : 8), x, r.Top - 5);
+        }
+
+        // scale marks on the left edge and a dim scan edge along the bottom
+        using (var mark = new Pen(SciFiColors.RuleStrong))
+        {
+            for (int y = r.Top + 24; y < r.Bottom - 24; y += 24)
+                g.DrawLine(mark, r.Left - 4, y, r.Left, y);
+        }
+        using (var scan = new Pen(Color.FromArgb(90, SciFiColors.Accent)))
+            g.DrawLine(scan, r.Left + len + 6, r.Bottom, r.Right - len - 6, r.Bottom);
     }
 
 
