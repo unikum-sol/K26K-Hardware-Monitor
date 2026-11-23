@@ -52,11 +52,17 @@ public abstract class SkiaView : Control
             _bitmap = new Bitmap(w, h, PixelFormat.Format32bppPArgb);
         }
 
-        BitmapData data = _bitmap.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.WriteOnly, PixelFormat.Format32bppPArgb);
+        // only the invalidated part is rendered and copied (animations invalidate a small area)
+        Rectangle clip = Rectangle.Intersect(e.ClipRectangle, new Rectangle(0, 0, w, h));
+        if (clip.Width <= 0 || clip.Height <= 0)
+            return;
+
+        BitmapData data = _bitmap.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.ReadWrite, PixelFormat.Format32bppPArgb);
         try
         {
             var info = new SKImageInfo(w, h, SKColorType.Bgra8888, SKAlphaType.Premul);
             using SKSurface surface = SKSurface.Create(info, data.Scan0, data.Stride);
+            surface.Canvas.ClipRect(new SKRect(clip.Left, clip.Top, clip.Right, clip.Bottom));
             Render(surface.Canvas, w, h, UiScale);
             surface.Canvas.Flush();
         }
@@ -65,7 +71,7 @@ public abstract class SkiaView : Control
             _bitmap.UnlockBits(data);
         }
 
-        e.Graphics.DrawImageUnscaled(_bitmap, 0, 0);
+        e.Graphics.DrawImage(_bitmap, clip, clip, GraphicsUnit.Pixel);
     }
 
     protected override void Dispose(bool disposing)

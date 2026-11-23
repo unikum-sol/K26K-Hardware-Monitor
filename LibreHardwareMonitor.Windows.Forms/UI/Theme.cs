@@ -182,6 +182,11 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
 
         // K26K: label format of the time axis; null keeps the original "h:mm".
         public virtual string PlotTimeFormat => null;
+
+        // K26K: horizontal heads per stacked axis instead of rotated titles, a legend, and dashed separators.
+        public virtual bool PlotAxisHeads => false;
+        public virtual bool PlotShowLegend => false;
+        public virtual bool PlotDashedSeparators => false;
         public abstract Color BackgroundColor { get; }
         public abstract Color ForegroundColor { get; }
         public abstract Color HyperlinkColor { get; }

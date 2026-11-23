@@ -24,8 +24,17 @@ using SkiaSharp;
 
 namespace LibreHardwareMonitor.Windows.Forms.UI.Fancy;
 
+/// <summary>All: everything (snapshots, boot). Static: everything that only changes with the data. Motion: the moving parts on top.</summary>
+public enum FancyLayer
+{
+    All,
+    Static,
+    Motion
+}
+
 public sealed class FancyOptions
 {
+    public FancyLayer Layer { get; set; } = FancyLayer.All;
     public bool ReducedMotion { get; set; }
     /// <summary>Seconds since the dashboard was opened (drives the boot sequence).</summary>
     public double SinceOpen { get; set; } = 10;
@@ -41,13 +50,15 @@ public static class FancyRenderer
     public static readonly SKColor Bg = Fui.Hex("#04100C");
     public static readonly SKColor Panel = Fui.Hex("#0A1A14");
     public static readonly SKColor Text = Fui.Hex("#D8F0E2");
-    public static readonly SKColor Dim = Fui.Hex("#8FBBA8");
+    public static readonly SKColor Dim = Fui.Hex("#9CC4B1");
     public static readonly SKColor Accent = Fui.Hex("#6BE8A4");
     public static readonly SKColor Data = Fui.Hex("#E8B040");
     public static readonly SKColor Cool = Fui.Hex("#7DD8C4");
     public static readonly SKColor Alarm = Fui.Hex("#FF8FA3");
     public static readonly SKColor Rule = Fui.Hex("#1F3A2E");
     public static readonly SKColor Track = Fui.Hex("#2A4A3C");
+    /// <summary>Track behind bars and rings that carry information (at least 3:1 against the panel).</summary>
+    public static readonly SKColor TrackStrong = Fui.Hex("#4A7A64");
 
     private const double BootSeconds = 2.6;
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
@@ -58,6 +69,14 @@ public static class FancyRenderer
     private static float Body(float u) => Math.Max(13f, 11.5f * u);
     private static float Value(float u) => Math.Max(16f, 15f * u);
 
+    /// <summary>The area in which things move (orbital view); animation frames only redraw this part.</summary>
+    public static SKRect MotionArea(int width, int height)
+    {
+        float u = Math.Max(0.8f, Math.Min(2.6f, Math.Min(width / 1600f, height / 900f)));
+        float top = 40 * u, bottom = height - 46 * u;
+        return new SKRect(18 * u + 310 * u + 24 * u, top, width - 18 * u - 350 * u - 24 * u, bottom);
+    }
+
     /// <summary>Renders one frame. Returns the hit area of the exit button.</summary>
     public static SKRect Render(SKCanvas c, int width, int height, float dpiScale, DashboardModel m, double t, FancyOptions o)
     {
@@ -65,8 +84,12 @@ public static class FancyRenderer
         double boot = o.ReducedMotion ? 1 : Math.Min(1, o.SinceOpen / BootSeconds);
         float ease = (float)(1 - Math.Pow(1 - boot, 3));
 
-        c.Clear(Bg);
-        DrawBackground(c, width, height, u);
+        bool still = o.Layer != FancyLayer.Motion;
+        if (still)
+        {
+            c.Clear(Bg);
+            DrawBackground(c, width, height, u);
+        }
 
         float top = 40 * u, bottom = height - 46 * u;
         float leftW = 310 * u, rightW = 350 * u;
@@ -82,6 +105,12 @@ public static class FancyRenderer
         }
 
         DrawOrbital(c, center, u, m, t, o, ease);
+        if (!still)
+        {
+            c.RestoreToCount(layer);
+            return SKRect.Empty;
+        }
+
         DrawLeftColumn(c, leftCol, u, m);
         DrawRightColumn(c, rightCol, u, m);
         c.RestoreToCount(layer);
@@ -144,11 +173,14 @@ public static class FancyRenderer
         maxR = Math.Max(120 * u, maxR);
         float coreR = Math.Max(66, Math.Max(58 * u, maxR * 0.26f));
         float[] orbits = { maxR * 0.56f, maxR * 0.80f, maxR };
-        double rot = o.ReducedMotion ? 0 : t * 3;
+        // rings only turn in single renders (snapshots); the live view caches them
+        double rot = o.ReducedMotion || o.Layer != FancyLayer.All ? 0 : t * 3;
+        bool still = o.Layer != FancyLayer.Motion;
+        bool motion = o.Layer != FancyLayer.Static && !o.ReducedMotion;
 
         // orbit rings with ticks and labels
         string[] ringNames = { "ORBIT A // COMPUTE", "ORBIT B // PERIPHERY", "ORBIT C // FIELD" };
-        for (int i = 0; i < orbits.Length; i++)
+        for (int i = 0; i < orbits.Length && still; i++)
         {
             float r = orbits[i];
             using SKPaint ring = Fui.Stroke(Accent.WithAlpha(i == 1 ? 0.36f : 0.24f), (i == 1 ? 1.3f : 1f) * u);
@@ -189,7 +221,7 @@ public static class FancyRenderer
         }
 
         // petal links between neighbours (organic "bloom" lines)
-        for (int i = 0; i < nodes.Count && nodes.Count > 2; i++)
+        for (int i = 0; i < nodes.Count && nodes.Count > 2 && still; i++)
         {
             var a = nodes[i];
             var b = nodes[(i + 1) % nodes.Count];
@@ -207,40 +239,41 @@ public static class FancyRenderer
             double share = !double.IsNaN(node.Tile.Power) ? node.Tile.Power / total : 0.03;
             float thick = (1.2f + (float)Math.Min(1, share * 2.2) * 6) * u;
             using SKPath path = Bloom(cp, node.P, coreR + 8 * u, node.R, node.Angle);
-            using (SKPaint halo = Fui.Stroke(node.Color.WithAlpha(0.18f), thick * 2.6f))
+            if (still)
             {
-                halo.MaskFilter = Fui.Blur(3 * u);
-                c.DrawPath(path, halo);
-            }
-            using (SKPaint line = Fui.Stroke(node.Color.WithAlpha(0.85f), thick))
-            {
+                using (SKPaint halo = Fui.Stroke(node.Color.WithAlpha(0.18f), thick * 2.6f))
+                {
+                    halo.MaskFilter = Fui.Blur(3 * u);
+                    c.DrawPath(path, halo);
+                }
+                using SKPaint line = Fui.Stroke(node.Color.WithAlpha(0.85f), thick);
                 line.StrokeCap = SKStrokeCap.Round;
                 c.DrawPath(path, line);
             }
 
             // particles: count and speed follow the activity of the node
-            if (!o.ReducedMotion)
+            if (motion)
             {
                 using var measure = new SKPathMeasure(path);
                 float len = measure.Length;
                 int count = 2 + (int)(Nz(node.Tile.Load) / 25);
                 double speed = 0.12 + Nz(node.Tile.Load) / 100 * 0.4;
                 using SKPaint dot = Fui.Fill(SKColors.White.WithAlpha(0.85f));
-                using SKPaint dotGlow = Fui.Fill(node.Color.WithAlpha(0.7f));
-                dotGlow.MaskFilter = Fui.Blur(2.5f * u);
+                using SKPaint dotGlow = Fui.Fill(node.Color.WithAlpha(0.35f));
                 for (int k = 0; k < count; k++)
                 {
                     double f = (t * speed + k / (double)count + node.Angle / 360) % 1;
                     if (measure.GetPosition((float)(f * len), out SKPoint pos))
                     {
-                        c.DrawCircle(pos, 3f * u, dotGlow);
+                        c.DrawCircle(pos, 3.4f * u, dotGlow);
                         c.DrawCircle(pos, 1.3f * u, dot);
                     }
                 }
             }
         }
 
-        DrawCore(c, cp, coreR, u, m, t, o, ease);
+        if (still)
+            DrawCore(c, cp, coreR, u, m, t, o, ease);
 
         foreach (var node in nodes)
             DrawNode(c, node.Tile, node.P, node.R, node.Color, node.Angle, area, u, m, t, o);
@@ -264,7 +297,7 @@ public static class FancyRenderer
     private static void DrawCore(SKCanvas c, SKPoint cp, float r, float u, DashboardModel m, double t, FancyOptions o, float ease)
     {
         SKColor col = StressColor(m.Stress);
-        double pulse = o.ReducedMotion ? 0.5 : 0.5 + 0.5 * Math.Sin(t * 1.6);
+        double pulse = o.ReducedMotion || o.Layer != FancyLayer.All ? 0.5 : 0.5 + 0.5 * Math.Sin(t * 1.6);
 
         using (var glow = new SKPaint { Shader = SKShader.CreateRadialGradient(cp, r * 1.9f, new[] { col.WithAlpha(0.2f + 0.06f * (float)pulse), SKColors.Transparent }, null, SKShaderTileMode.Clamp) })
             c.DrawCircle(cp, r * 1.9f, glow);
@@ -312,13 +345,16 @@ public static class FancyRenderer
     private static void DrawNode(SKCanvas c, HardwareTile tile, SKPoint p, float r, SKColor col, double angle, SKRect area, float u, DashboardModel m, double t, FancyOptions o)
     {
         double load = Nz(tile.Load);
-        if (!o.ReducedMotion && load > 5)
+        if (!o.ReducedMotion && o.Layer != FancyLayer.Static && load > 5)
         {
             // one slow ring per second at most
             double phase = (t * (0.35 + load / 250) + angle / 360) % 1;
             using SKPaint pulse = Fui.Stroke(col.WithAlpha((float)(0.5 * (1 - phase))), u);
             c.DrawCircle(p, r + (float)(phase * 14 * u), pulse);
         }
+
+        if (o.Layer == FancyLayer.Motion)
+            return;
 
         using (SKPaint halo = Fui.Fill(col.WithAlpha(0.22f)))
         {
@@ -427,14 +463,22 @@ public static class FancyRenderer
                 double load = m.CoreLoads[k];
                 SKColor color = LoadColor(load);
                 float f = (float)(load / 100);
+                // the fill starts below the core label, so the label always sits on the dark panel
+                float labelH = Micro(u) + 4 * u;
+                float fillH = (cellH - labelH) * f;
                 using (SKPaint back = Fui.Fill(Panel))
                     c.DrawRect(cx, cy, cell, cellH, back);
-                using (SKPaint fill = Fui.Fill(color.WithAlpha(0.16f + 0.38f * f)))
-                    c.DrawRect(cx, cy + cellH * (1 - f), cell, cellH * f, fill);
-                using (SKPaint border = Fui.Stroke(color.WithAlpha(0.6f), u))
+                using (SKPaint fill = Fui.Fill(color.WithAlpha(0.22f + 0.33f * f)))
+                    c.DrawRect(cx, cy + cellH - fillH, cell, fillH, fill);
+                using (SKPaint border = Fui.Stroke(color.WithAlpha(0.75f), u))
+                {
+                    // warm cells get a dashed border, hot cells a triangle: the state does not rely on color
+                    if (load >= 60 && load < 85)
+                        border.PathEffect = SKPathEffect.CreateDash(new[] { 3 * u, 2 * u }, 0);
                     c.DrawRect(cx, cy, cell, cellH, border);
-                Fui.Text(c, "C" + (k + 1).ToString(Inv), cx + 4 * u, cy + Micro(u), Micro(u), Text.WithAlpha(0.8f), "Medium");
-                Fui.Text(c, load.ToString("0", Inv), cx + cell - 4 * u, cy + cellH - 5 * u, Small(u), Text, "Bold", SKTextAlign.Right);
+                }
+                Fui.Text(c, "C" + (k + 1).ToString(Inv), cx + 4 * u, cy + Micro(u), Micro(u), Text, "Medium");
+                Fui.Text(c, (load >= 85 ? "▲" : "") + load.ToString("0", Inv), cx + cell - 4 * u, cy + cellH - 5 * u, Small(u), Text, "Bold", SKTextAlign.Right);
             }
             y += (float)Math.Ceiling(cores / (double)perRow) * (cellH + cellGap) + 12 * u;
         }
@@ -457,21 +501,61 @@ public static class FancyRenderer
                 SKColor colr = HeatColor(ratio);
                 Fui.Text(c, Shorten(entry.Name, 22).ToUpperInvariant(), col.Left, y + Micro(u), Micro(u), Dim, "Medium");
                 Fui.Text(c, Fui.Temp(entry.Temp, m.Fahrenheit) + " / " + Fui.Temp(entry.Limit, m.Fahrenheit) + HeatTag(ratio), col.Right, y + Micro(u), Micro(u), colr, "Bold", SKTextAlign.Right);
-                Fui.Bar(c, new SKRect(col.Left, y + Micro(u) + 5 * u, col.Right, y + Micro(u) + 8 * u), ratio, colr, Track);
+                Fui.Bar(c, new SKRect(col.Left, y + Micro(u) + 5 * u, col.Right, y + Micro(u) + 8 * u), ratio, colr, TrackStrong);
                 y += rowH;
             }
         }
 
-        // color legend for all heat colors
-        float ly = col.Bottom - 2 * u;
+        // color legend for all heat colors, right below the thermals
+        float ly = y + Small(u) + 2 * u;
         float lx = col.Left;
-        foreach (var (label, color) in new[] { ("OK", Accent), ("WARM ≥60%", Data), ("HOT ≥85% OF LIMIT", Alarm) })
+        foreach (var (label, color) in new[] { ("OK", Accent), ("WARM ≥60%", Data), ("▲ HOT ≥85% OF LIMIT", Alarm) })
         {
             using (SKPaint sw = Fui.Fill(color))
-                c.DrawRect(lx, ly - 8 * u, 8 * u, 8 * u, sw);
-            lx += 12 * u;
-            lx += Fui.Text(c, label, lx, ly, Micro(u), Dim, "Medium") + 14 * u;
+                c.DrawRect(lx, ly - 9 * u, 9 * u, 9 * u, sw);
+            lx += 13 * u;
+            lx += Fui.Text(c, label, lx, ly, Small(u), Dim, "Medium") + 14 * u;
         }
+        y = ly + 20 * u;
+
+        // activity history fills the rest of the column
+        float rest = col.Bottom - y;
+        if (rest > 90 * u && m.CpuHistory.Length > 1)
+        {
+            y = Header(c, "ACTIVITY // " + Math.Max(1, m.CpuHistory.Length * m.UpdateIntervalMs / 60000).ToString(Inv) + " MIN", "CPU  GPU", col.Left, col.Right, y, u);
+            var box = new SKRect(col.Left, y, col.Right, col.Bottom);
+            using (SKPaint back = Fui.Fill(Panel.WithAlpha(0.8f)))
+                c.DrawRect(box, back);
+            using (SKPaint grid = Fui.Stroke(Rule, u))
+            {
+                for (int g = 1; g < 4; g++)
+                    c.DrawLine(box.Left, box.Top + box.Height * g / 4, box.Right, box.Top + box.Height * g / 4, grid);
+            }
+            Fui.Brackets(c, box, 8 * u, Accent.WithAlpha(0.7f), u);
+            Spark(c, box, m.CpuHistory, Accent, u, false);
+            Spark(c, box, m.GpuHistory, Data, u, true);
+            Fui.Text(c, "100%", box.Left + 5 * u, box.Top + Micro(u) + 3 * u, Micro(u), Dim, "Medium");
+        }
+    }
+
+    private static void Spark(SKCanvas c, SKRect r, double[] values, SKColor color, float u, bool dashed)
+    {
+        if (values.Length < 2)
+            return;
+        using var path = new SKPath();
+        for (int i = 0; i < values.Length; i++)
+        {
+            float x = r.Left + r.Width * i / (values.Length - 1);
+            float y = r.Bottom - 3 * u - (float)(Math.Max(0, Math.Min(100, values[i])) / 100) * (r.Height - 6 * u);
+            if (i == 0)
+                path.MoveTo(x, y);
+            else
+                path.LineTo(x, y);
+        }
+        using SKPaint p = Fui.Stroke(color, 1.8f * u);
+        if (dashed)
+            p.PathEffect = SKPathEffect.CreateDash(new[] { 6 * u, 3 * u }, 0);
+        c.DrawPath(path, p);
     }
 
     private static void DrawTile(SKCanvas c, SKRect r, HardwareTile tile, float u, DashboardModel m)
@@ -494,9 +578,9 @@ public static class FancyRenderer
         float vs = Math.Max(18, (value.Length > 7 ? 15 : 21) * u);
         Fui.Text(c, value, x, r.Top + Micro(u) + vs + 9 * u, vs, Text, "Medium");
 
-        Fui.Bar(c, new SKRect(x, r.Bottom - 15 * u, r.Right - 10 * u, r.Bottom - 11 * u), Nz(tile.Load) / 100, Accent, Track);
+        Fui.Bar(c, new SKRect(x, r.Bottom - 15 * u, r.Right - 10 * u, r.Bottom - 11 * u), Nz(tile.Load) / 100, Accent, TrackStrong);
         double heat = double.IsNaN(tile.Temp) ? double.NaN : (tile.Temp - 30) / Math.Max(1, tile.TempLimit - 30);
-        Fui.Bar(c, new SKRect(x, r.Bottom - 8 * u, r.Right - 10 * u, r.Bottom - 5 * u), heat, col, Track);
+        Fui.Bar(c, new SKRect(x, r.Bottom - 8 * u, r.Right - 10 * u, r.Bottom - 5 * u), heat, col, TrackStrong);
     }
 
     // ------------------------------------------------------------------ right column
@@ -525,6 +609,11 @@ public static class FancyRenderer
             using (SKPaint sep = Fui.Stroke(Rule, u))
                 c.DrawLine(col.Left, y + rowH - 1 * u, col.Right, y + rowH - 1 * u, sep);
             y += rowH;
+        }
+        if (rows.Any(r => r.Value.StartsWith("n/a", StringComparison.Ordinal)))
+        {
+            y += Micro(u) + 4 * u;
+            Fui.Text(c, "n/a = NO SENSOR OR NEEDS ADMIN RIGHTS", col.Left, y, Micro(u), Dim, "Medium");
         }
         y += 12 * u;
 
@@ -570,15 +659,23 @@ public static class FancyRenderer
 
         // stress composition: the four parts of the index
         y = Header(c, "STRESS COMPOSITION", Math.Round(m.Stress).ToString(Inv) + " / 100", col.Left, col.Right, y, u);
-        var comp = new[] { ("LOAD  max CPU/GPU", m.StressLoad, Accent), ("HEAT  of limit", m.StressHeat, Data), ("MEMORY", m.StressMemory, Cool), ("FANS  effort", m.StressFans, Fui.Hex("#B8A0F0")) };
-        foreach (var (label, value, color) in comp)
+        var comp = new[]
         {
-            Fui.Text(c, label.ToUpperInvariant(), col.Left, y + Micro(u), Micro(u), Dim, "Medium");
+            ("LOAD  max CPU/GPU", StressWeights.Load, m.StressLoad, Accent),
+            ("HEAT  share of limit", StressWeights.Heat, m.StressHeat, Data),
+            ("MEMORY", StressWeights.Memory, m.StressMemory, Cool),
+            ("FANS  effort", StressWeights.Fans, m.StressFans, Fui.Hex("#B8A0F0"))
+        };
+        foreach (var (label, weight, value, color) in comp)
+        {
+            float lw = Fui.Text(c, label.ToUpperInvariant(), col.Left, y + Micro(u), Micro(u), Dim, "Medium");
+            Fui.Text(c, "×" + weight.ToString("0.00", Inv), col.Left + lw + 8 * u, y + Micro(u), Micro(u), Cool, "Bold");
             Fui.Text(c, value.ToString("0", Inv), col.Right, y + Micro(u), Small(u), Text, "Bold", SKTextAlign.Right);
-            Fui.Bar(c, new SKRect(col.Left, y + Micro(u) + 5 * u, col.Right, y + Micro(u) + 9 * u), value / 100, color, Track);
+            Fui.Bar(c, new SKRect(col.Left, y + Micro(u) + 5 * u, col.Right, y + Micro(u) + 9 * u), value / 100, color, TrackStrong);
             y += Math.Max(26, 25 * u);
         }
-        y += 8 * u;
+        Fui.Text(c, "INDEX = WEIGHTED SUM, AT LEAST " + StressWeights.Floor.ToString("0.0", Inv) + " × MAX(LOAD, HEAT)", col.Left, y + Micro(u) - 2 * u, Micro(u), Dim, "Medium");
+        y += Micro(u) + 14 * u;
 
         // thermal headroom ring: distance of the hottest component to its limit
         float ringR = Math.Min(42 * u, (col.Bottom - y) * 0.22f);
@@ -586,13 +683,14 @@ public static class FancyRenderer
         {
             y = Header(c, "THERMAL HEADROOM", string.IsNullOrEmpty(m.HottestName) ? "n/a" : Shorten(m.HottestName, 18).ToUpperInvariant(), col.Left, col.Right, y, u);
             var rc = new SKPoint(col.Left + ringR + 4 * u, y + ringR + 6 * u);
-            double used = m.ThermalRatio;
-            using (SKPaint track = Fui.Stroke(Track, 7 * u))
+            // the ring shows the reserve that is left: full = plenty of room, empty = at the limit
+            double reserve = 1 - m.ThermalRatio;
+            using (SKPaint track = Fui.Stroke(TrackStrong, 7 * u))
                 c.DrawCircle(rc, ringR, track);
-            using (SKPaint arc = Fui.Stroke(HeatColor(used), 7 * u))
+            using (SKPaint arc = Fui.Stroke(HeatColor(m.ThermalRatio), 7 * u))
             {
                 arc.StrokeCap = SKStrokeCap.Round;
-                DrawArc(c, rc, ringR, -90, (float)(used * 360), arc);
+                DrawArc(c, rc, ringR, -90, (float)(reserve * 360), arc);
             }
             string k = double.IsNaN(m.ThermalHeadroom) ? "n/a" : m.ThermalHeadroom.ToString("0", Inv) + " K";
             Fui.Text(c, k, rc.X, rc.Y + 6 * u, Math.Max(15, 17 * u), Text, "Bold", SKTextAlign.Center, 0, 2 * u);
@@ -600,7 +698,7 @@ public static class FancyRenderer
             float sx = rc.X + ringR + 18 * u;
             Fui.Text(c, "TO THE NEAREST LIMIT", sx, rc.Y - 10 * u, Micro(u), Dim, "Medium");
             Fui.Text(c, "HOTTEST  " + (double.IsNaN(m.HottestTemp) ? "n/a" : Fui.Temp(m.HottestTemp, m.Fahrenheit)), sx, rc.Y + 8 * u, Small(u), Text, "Medium");
-            Fui.Text(c, "RING = SHARE OF LIMIT USED", sx, rc.Y + 26 * u, Micro(u), Dim, "Medium");
+            Fui.Text(c, "RING = RESERVE LEFT " + (reserve * 100).ToString("0", Inv) + "%", sx, rc.Y + 26 * u, Micro(u), Dim, "Medium");
             y = rc.Y + ringR + 18 * u;
         }
 
@@ -609,7 +707,8 @@ public static class FancyRenderer
         if (scopeH > 60)
         {
             string span = Math.Max(1, m.PowerHistory.Length * m.UpdateIntervalMs / 60000).ToString(Inv);
-            y = Header(c, "POWER // " + span + " MIN", est + Fui.Watts(m.TotalPower), col.Left, col.Right, y, u);
+            string minMax = m.PowerHistory.Length > 1 ? "MIN " + m.PowerHistory.Min().ToString("0", Inv) + "  MAX " + m.PowerHistory.Max().ToString("0", Inv) + " W" : est + Fui.Watts(m.TotalPower);
+            y = Header(c, "POWER // " + span + " MIN", minMax, col.Left, col.Right, y, u);
             DrawScope(c, new SKRect(col.Left + 44 * u, y, col.Right, y + scopeH), m.PowerHistory, u, m.OtherPowerEstimated);
         }
     }
@@ -620,15 +719,19 @@ public static class FancyRenderer
             c.DrawRect(r, back);
         Fui.Brackets(c, r, 8 * u, Accent.WithAlpha(0.7f), u);
 
-        double max = values.Length > 0 ? Math.Max(10, values.Max() * 1.15) : 100;
-        max = Math.Ceiling(max / 50) * 50;
+        // the scale follows the data (with some margin), so the curve uses the full height
+        double lo = values.Length > 0 ? values.Min() : 0, hi = values.Length > 0 ? values.Max() : 100;
+        double margin = Math.Max(5, (hi - lo) * 0.2);
+        double step = NiceStep((hi - lo + 2 * margin) / 4);
+        double min = Math.Max(0, Math.Floor((lo - margin) / step) * step);
+        double max = Math.Max(min + step * 2, Math.Ceiling((hi + margin) / step) * step);
         using (SKPaint grid = Fui.Stroke(Rule, u))
         {
-            for (int i = 0; i <= 4; i++)
+            for (double v = min; v <= max + step / 2; v += step)
             {
-                float gy = r.Bottom - r.Height * i / 4;
+                float gy = r.Bottom - (float)((v - min) / (max - min)) * r.Height;
                 c.DrawLine(r.Left, gy, r.Right, gy, grid);
-                Fui.Text(c, (max * i / 4).ToString("0", Inv), r.Left - 6 * u, gy + 4 * u, Micro(u), Dim, "Medium", SKTextAlign.Right);
+                Fui.Text(c, v.ToString("0", Inv), r.Left - 6 * u, gy + 4 * u, Micro(u), Dim, "Medium", SKTextAlign.Right);
             }
         }
 
@@ -637,7 +740,7 @@ public static class FancyRenderer
 
         using var line = new SKPath();
         using var area = new SKPath();
-        float py(double v) => r.Bottom - (float)(v / max) * r.Height;
+        float py(double v) => r.Bottom - (float)((v - min) / (max - min)) * r.Height;
         for (int i = 0; i < values.Length; i++)
         {
             float x = r.Left + r.Width * i / (values.Length - 1);
@@ -660,16 +763,23 @@ public static class FancyRenderer
         using (SKPaint p = Fui.Stroke(Data, 2 * u))
             c.DrawPath(line, p);
 
-        // min and max markers
+        // min and max markers (their values are in the header)
         int iMax = Array.IndexOf(values, values.Max()), iMin = Array.IndexOf(values, values.Min());
-        foreach (var (idx, label) in new[] { (iMax, "MAX "), (iMin, "MIN ") })
+        foreach (int idx in new[] { iMax, iMin })
         {
             float x = r.Left + r.Width * idx / (values.Length - 1), y = py(values[idx]);
-            using (SKPaint dot = Fui.Fill(Text))
-                c.DrawCircle(x, y, 3 * u, dot);
-            SKTextAlign align = x > r.MidX ? SKTextAlign.Right : SKTextAlign.Left;
-            Fui.Text(c, label + values[idx].ToString("0", Inv) + " W", x + (align == SKTextAlign.Left ? 6 : -6) * u, y + (label == "MAX " ? -6 : 14) * u, Micro(u), Text, "Medium", align);
+            using (SKPaint ring = Fui.Stroke(Text, 1.4f * u))
+                c.DrawCircle(x, y, 3.5f * u, ring);
         }
+    }
+
+    private static double NiceStep(double raw)
+    {
+        if (raw <= 0 || double.IsNaN(raw))
+            return 10;
+        double mag = Math.Pow(10, Math.Floor(Math.Log10(raw)));
+        double norm = raw / mag;
+        return (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
     }
 
     // ------------------------------------------------------------------ strips

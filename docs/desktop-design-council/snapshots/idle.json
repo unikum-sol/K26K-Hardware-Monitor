@@ -8,7 +8,7 @@
   "Fahrenheit": false,
   "WebServer": "http://192.168.178.24:8085",
   "WebServerOnline": true,
-  "Stress": 18.4,
+  "Stress": 24.8,
   "State": "NOMINAL",
   "ThermalRatio": 0.29,
   "ThermalHeadroom": 46,

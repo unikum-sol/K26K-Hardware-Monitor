@@ -92,6 +92,7 @@ public sealed partial class MainForm
         nodeTextBoxValue.DrawText += SciFiTree_DrawText;
         nodeTextBoxMin.DrawText += SciFiTree_DrawText;
         nodeTextBoxMax.DrawText += SciFiTree_DrawText;
+        treeView.RowDraw += SciFiTree_RowDraw;
         backgroundUpdater.RunWorkerCompleted += delegate { UpdateDashboard(); };
         splitContainer.Panel1.Paint += SciFiPanel_Paint;
         splitContainer.Panel2.Paint += SciFiPanel_Paint;
@@ -110,7 +111,7 @@ public sealed partial class MainForm
             _dumpAfter = afterArg >= 0 && afterArg + 1 < args.Length && int.TryParse(args[afterArg + 1], out int n) ? n : 15;
         }
 
-        _reducedMotionItem.Checked = _settings.GetValue("fancyReducedMotion", !System.Windows.Forms.SystemInformation.UIEffectsEnabled);
+        _reducedMotionItem.Checked = _settings.GetValue("fancyReducedMotion", !ClientAreaAnimationsEnabled());
         _fancyFullscreenItem.Checked = _settings.GetValue("fancyFullscreen", false);
 
         if (!_skiaAvailable || saved == "classic")
@@ -124,6 +125,25 @@ public sealed partial class MainForm
                 EnterFancy();
         }
     }
+
+    // Windows setting "Show animations in Windows"; Reduced Motion follows it until the user picks otherwise.
+    private static bool ClientAreaAnimationsEnabled()
+    {
+        const uint SPI_GETCLIENTAREAANIMATION = 0x1042;
+        bool enabled = true;
+        try
+        {
+            SystemParametersInfo(SPI_GETCLIENTAREAANIMATION, 0, ref enabled, 0);
+        }
+        catch (Exception)
+        {
+            // keep animations on if the setting cannot be read
+        }
+        return enabled;
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool SystemParametersInfo(uint action, uint param, ref bool value, uint winIni);
 
     // SkiaSharp lives in its own method, so a missing native library is caught here and not at JIT time.
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -457,7 +477,10 @@ public sealed partial class MainForm
                 bool hot = sensor.SensorType == SensorType.Temperature && v >= 85 || SciFiBarControl.IsPercent(sensor.SensorType) && v >= 95;
                 bool warm = sensor.SensorType == SensorType.Temperature && v >= 75 || SciFiBarControl.IsPercent(sensor.SensorType) && v >= 80;
                 if (dead)
+                {
                     e.TextColor = SciFiColors.Muted;
+                    e.Text = "n/a";
+                }
                 else if (hot)
                 {
                     e.TextColor = SciFiColors.Alarm;
@@ -471,6 +494,8 @@ public sealed partial class MainForm
             else if (sender == nodeTextBoxMin || sender == nodeTextBoxMax)
             {
                 e.TextColor = dead ? SciFiColors.Muted : SciFiColors.Dim;
+                if (dead)
+                    e.Text = "-";
             }
             else if (sender == nodeTextBoxText && dead)
             {
@@ -497,6 +522,19 @@ public sealed partial class MainForm
         if (_valueColumnWidened && column == treeView.Columns[1])
             return Math.Max(20, column.Width - MeterRoom);
         return column.Width;
+    }
+
+    // Hardware rows get a tinted band with an accent bar, so the devices stand out from their sensors.
+    private void SciFiTree_RowDraw(object sender, Aga.Controls.Tree.TreeViewRowDrawEventArgs e)
+    {
+        if (_design != UiDesign.SciFi || !(e.Node.Tag is HardwareNode))
+            return;
+
+        Rectangle r = new Rectangle(0, e.RowRect.Top, treeView.ClientSize.Width + Math.Abs(treeView.OffsetX), e.RowRect.Height);
+        using (var band = new System.Drawing.Drawing2D.LinearGradientBrush(r, Color.FromArgb(255, 12, 38, 46), SciFiColors.Panel, System.Drawing.Drawing2D.LinearGradientMode.Horizontal))
+            e.Graphics.FillRectangle(band, r);
+        using (var bar = new SolidBrush(SciFiColors.Accent))
+            e.Graphics.FillRectangle(bar, r.Left, r.Top + 3, 3, r.Height - 6);
     }
 
     // Each kind of value gets its own color, so the grid reads like an instrument panel.

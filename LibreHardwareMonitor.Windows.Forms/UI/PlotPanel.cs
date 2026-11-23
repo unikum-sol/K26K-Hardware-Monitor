@@ -14,6 +14,7 @@ using LibreHardwareMonitor.Windows.Forms.Utilities;
 using OxyPlot;
 using OxyPlot.Annotations;
 using OxyPlot.Axes;
+using OxyPlot.Legends;
 using OxyPlot.WindowsForms;
 using OxyPlot.Series;
 using LibreHardwareMonitor.Windows.Forms.UI.Themes;
@@ -32,6 +33,10 @@ public class PlotPanel : UserControl
 
     // K26K: value axes the user zoomed or panned. Only their ranges are saved; all others autoscale.
     private readonly HashSet<SensorType> _userZoomedAxes = new HashSet<SensorType>();
+
+    // K26K: legend and horizontal axis heads ("TEMPERATURE // °C") used by the Sci-Fi design
+    private Legend _legend;
+    private readonly Dictionary<SensorType, TextAnnotation> _axisHeads = new Dictionary<SensorType, TextAnnotation>();
 
     // K26K: limits that keep every axis range finite. Infinite ranges made GDI+ throw an OverflowException.
     private const double AxisLimit = 1e15;
@@ -110,14 +115,38 @@ public class PlotPanel : UserControl
             axis.TicklineColor = Theme.Current.PlotBorderColor.ToOxyColor();
             // K26K: designs can show the axis titles in capitals
             if (!string.IsNullOrEmpty(axis.Key))
-                axis.Title = Theme.Current.PlotUppercaseTitles ? axis.Key.ToUpperInvariant() : axis.Key;
+                axis.Title = Theme.Current.PlotAxisHeads ? null : Theme.Current.PlotUppercaseTitles ? axis.Key.ToUpperInvariant() : axis.Key;
+            // with horizontal heads the rotated title (including the unit) is not drawn at all
+            if (!string.IsNullOrEmpty(axis.Key))
+                axis.TitleFormatString = Theme.Current.PlotAxisHeads ? " " : "{0} [{1}]";
         }
         _model.TitleColor = Theme.Current.PlotTextColor.ToOxyColor();
         _timeAxis.StringFormat = Theme.Current.PlotTimeFormat ?? "h:mm";
         foreach (LineAnnotation annotation in _model.Annotations.Select(x => x as LineAnnotation).Where(x => x != null))
         {
-            annotation.Color = Theme.Current.PlotBorderColor.ToOxyColor();
+            annotation.Color = Theme.Current.PlotDashedSeparators ? Theme.Current.PlotGridMajorColor.ToOxyColor() : Theme.Current.PlotBorderColor.ToOxyColor();
+            annotation.LineStyle = Theme.Current.PlotDashedSeparators ? LineStyle.Dash : LineStyle.Solid;
+            annotation.StrokeThickness = Theme.Current.PlotDashedSeparators ? 1 : 2;
         }
+
+        // K26K: legend (which curve is which sensor) for designs that want one
+        if (Theme.Current.PlotShowLegend)
+        {
+            if (_legend == null)
+            {
+                _legend = new Legend { LegendPosition = LegendPosition.TopRight, LegendPlacement = LegendPlacement.Inside, LegendOrientation = LegendOrientation.Vertical, LegendSymbolLength = 14, LegendFontSize = 11, LegendPadding = 6, LegendItemSpacing = 4 };
+                _model.Legends.Add(_legend);
+            }
+            _legend.LegendBackground = OxyColor.FromAColor(230, Theme.Current.PlotBackgroundColor.ToOxyColor());
+            _legend.LegendBorder = Theme.Current.PlotGridMajorColor.ToOxyColor();
+            _legend.LegendTextColor = Theme.Current.ForegroundColor.ToOxyColor();
+            _model.IsLegendVisible = true;
+        }
+        else
+        {
+            _model.IsLegendVisible = false;
+        }
+        UpdateAxisHeads();
     }
 
     public void SetCurrentSettings()
@@ -556,9 +585,50 @@ public class PlotPanel : UserControl
             }
 
             ResetInvalidAxes();
+            UpdateAxisHeads();
         }
 
         _plot?.InvalidatePlot(true);
+    }
+
+    // A head at the top left of every visible axis area; the time axis runs right to left, so its maximum is the left edge.
+    private void UpdateAxisHeads()
+    {
+        foreach (KeyValuePair<SensorType, LinearAxis> pair in _axes)
+        {
+            LinearAxis axis = pair.Value;
+            bool show = Theme.Current.PlotAxisHeads && axis.IsAxisVisible && !double.IsNaN(axis.ActualMaximum) && !double.IsNaN(_timeAxis.ActualMaximum);
+            _axisHeads.TryGetValue(pair.Key, out TextAnnotation head);
+            if (!show)
+            {
+                if (head != null && _model.Annotations.Contains(head))
+                    _model.Annotations.Remove(head);
+                continue;
+            }
+
+            if (head == null)
+            {
+                head = new TextAnnotation
+                {
+                    YAxisKey = axis.Key,
+                    TextHorizontalAlignment = OxyPlot.HorizontalAlignment.Left,
+                    TextVerticalAlignment = OxyPlot.VerticalAlignment.Top,
+                    Stroke = OxyColors.Transparent,
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 11,
+                    Padding = new OxyThickness(6, 4, 6, 4),
+                    Layer = AnnotationLayer.AboveSeries
+                };
+                _axisHeads[pair.Key] = head;
+            }
+
+            if (!_model.Annotations.Contains(head))
+                _model.Annotations.Add(head);
+            head.Text = axis.Key.ToUpperInvariant() + (string.IsNullOrEmpty(axis.Unit) ? "" : "  //  " + axis.Unit);
+            head.TextColor = Theme.Current.HyperlinkColor.ToOxyColor();
+            head.Background = OxyColor.FromAColor(200, Theme.Current.PlotBackgroundColor.ToOxyColor());
+            head.TextPosition = new DataPoint(_timeAxis.ActualMaximum, axis.ActualMaximum);
+        }
     }
 
     public void TimeAxisZoom(double min, double max)

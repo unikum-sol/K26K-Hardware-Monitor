@@ -72,6 +72,9 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
         public override string PlotEmptyHint => "SELECT SENSORS IN THE GRID TO PLOT THEM";
         public override bool PlotUppercaseTitles => true;
         public override string PlotTimeFormat => "h:mm:ss";
+        public override bool PlotAxisHeads => true;
+        public override bool PlotShowLegend => true;
+        public override bool PlotDashedSeparators => true;
 
         public override Color BackgroundColor => SciFiColors.Background;
         public override Color ForegroundColor => SciFiColors.Text;
@@ -89,8 +92,8 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
         public override Color PlotBackgroundColor => SciFiColors.Panel;
         public override Color PlotBorderColor => SciFiColors.RuleStrong;
         public override Color[] PlotColorPalette => Palette;
-        public override Color PlotGridMajorColor => Color.FromArgb(255, 18, 40, 50);
-        public override Color PlotGridMinorColor => Color.FromArgb(255, 12, 26, 33);
+        public override Color PlotGridMajorColor => ColorTranslator.FromHtml("#2E4A5C");
+        public override Color PlotGridMinorColor => ColorTranslator.FromHtml("#16252F");
         public override Color PlotTextColor => SciFiColors.Dim;
 
         public override Color ScrollbarBackground => SciFiColors.Background;

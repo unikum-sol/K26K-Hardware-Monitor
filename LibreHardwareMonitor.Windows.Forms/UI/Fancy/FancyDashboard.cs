@@ -16,7 +16,6 @@
 
 using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Windows.Forms;
 using LibreHardwareMonitor.Windows.Forms.Telemetry;
 using LibreHardwareMonitor.Windows.Forms.UI.SciFi;
@@ -24,26 +23,41 @@ using SkiaSharp;
 
 namespace LibreHardwareMonitor.Windows.Forms.UI.Fancy;
 
+/// <summary>
+/// Shows the Fancy dashboard. Everything that only changes with the data is drawn once per update
+/// into a cached bitmap; each animation frame copies that bitmap and draws only the moving parts
+/// (particles and pulse rings) on top. This keeps the CPU load low.
+/// </summary>
 public sealed class FancyDashboard : SkiaView
 {
+    private const double BootSeconds = 2.6;
+
     private readonly Timer _timer = new();
-    private readonly Stopwatch _clock = new();
+    private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly FancyOptions _options = new();
-    private DashboardModel _target = new();
-    private DashboardModel _shown = new();
-    private double _lastFrame;
+    private DashboardModel _model = new();
+    private SKBitmap _cache;
+    private bool _cacheDirty = true;
     private double _openedAt;
     private SKRect _exit;
-    private int _slowFrames;
 
     public event EventHandler ExitRequested;
 
     public FancyDashboard()
     {
         Dock = DockStyle.Fill;
-        _timer.Interval = 33;
-        _timer.Tick += (s, e) => Invalidate();
-        _clock.Start();
+        _timer.Interval = 40;
+        _timer.Tick += (s, e) =>
+        {
+            // during the boot sequence everything changes; afterwards only the orbital view moves
+            if (_options.SinceOpen < BootSeconds + 0.2)
+            {
+                Invalidate();
+                return;
+            }
+            SKRect area = FancyRenderer.MotionArea(ClientSize.Width, ClientSize.Height);
+            Invalidate(System.Drawing.Rectangle.FromLTRB((int)area.Left, (int)area.Top, (int)Math.Ceiling(area.Right), (int)Math.Ceiling(area.Bottom)));
+        };
     }
 
     public bool ReducedMotion
@@ -52,6 +66,7 @@ public sealed class FancyDashboard : SkiaView
         set
         {
             _options.ReducedMotion = value;
+            _cacheDirty = true;
             UpdateTimer();
             Invalidate();
         }
@@ -59,16 +74,12 @@ public sealed class FancyDashboard : SkiaView
 
     public DashboardModel Model
     {
-        get => _target;
+        get => _model;
         set
         {
-            _target = value ?? new DashboardModel();
-            if (_shown.Tiles.Count != _target.Tiles.Count || ReducedMotion)
-                _shown = Clone(_target);
-            else
-                CopyStatic(_target, _shown);
-            if (ReducedMotion)
-                Invalidate();
+            _model = value ?? new DashboardModel();
+            _cacheDirty = true;
+            Invalidate();
         }
     }
 
@@ -76,7 +87,7 @@ public sealed class FancyDashboard : SkiaView
     public void Restart()
     {
         _openedAt = _clock.Elapsed.TotalSeconds;
-        _shown = Clone(_target);
+        _cacheDirty = true;
         UpdateTimer();
     }
 
@@ -86,11 +97,16 @@ public sealed class FancyDashboard : SkiaView
         UpdateTimer();
     }
 
+    protected override void OnResize(EventArgs e)
+    {
+        base.OnResize(e);
+        _cacheDirty = true;
+    }
+
     private void UpdateTimer()
     {
-        // 2 fps is enough for the clock and values when motion is reduced
-        _timer.Interval = ReducedMotion ? 500 : _slowFrames > 20 ? 66 : 33;
-        _timer.Enabled = Visible && FindForm()?.WindowState != FormWindowState.Minimized;
+        // with reduced motion nothing moves, so the data updates alone redraw the view
+        _timer.Enabled = Visible && !ReducedMotion && FindForm()?.WindowState != FormWindowState.Minimized;
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -101,6 +117,7 @@ public sealed class FancyDashboard : SkiaView
         {
             _options.ExitHover = hover;
             Cursor = hover ? Cursors.Hand : Cursors.Default;
+            _cacheDirty = true;
             Invalidate();
         }
     }
@@ -115,84 +132,48 @@ public sealed class FancyDashboard : SkiaView
     protected override void Render(SKCanvas canvas, int width, int height, float scale)
     {
         double now = _clock.Elapsed.TotalSeconds;
-        double dt = Math.Min(0.25, now - _lastFrame);
-        _lastFrame = now;
-        Ease(dt);
-
         _options.SinceOpen = now - _openedAt;
-        long start = Stopwatch.GetTimestamp();
-        _exit = FancyRenderer.Render(canvas, width, height, scale, _shown, now, _options);
-        double ms = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
 
-        // drop to 15 fps if frames take too long (slow CPU, huge window)
-        if (ms > 22)
-            _slowFrames++;
-        else if (_slowFrames > 0)
-            _slowFrames--;
-        if (_slowFrames == 21 || _slowFrames == 0)
-            UpdateTimer();
-    }
-
-    // Values glide toward the latest sample instead of jumping once per second.
-    private void Ease(double dt)
-    {
-        if (ReducedMotion)
+        // the boot sequence changes everything, so it is drawn completely each frame
+        if (!ReducedMotion && _options.SinceOpen < BootSeconds)
+        {
+            _options.Layer = FancyLayer.All;
+            _exit = FancyRenderer.Render(canvas, width, height, scale, _model, now, _options);
+            _cacheDirty = true;
             return;
-        double f = 1 - Math.Exp(-dt * 5);
-        _shown.Stress = Lerp(_shown.Stress, _target.Stress, f);
-        for (int i = 0; i < _shown.Tiles.Count && i < _target.Tiles.Count; i++)
-        {
-            _shown.Tiles[i].Load = Lerp(_shown.Tiles[i].Load, _target.Tiles[i].Load, f);
-            _shown.Tiles[i].Temp = Lerp(_shown.Tiles[i].Temp, _target.Tiles[i].Temp, f);
         }
-        if (_shown.CoreLoads.Length == _target.CoreLoads.Length)
+
+        if (_cache == null || _cache.Width != width || _cache.Height != height)
         {
-            for (int i = 0; i < _shown.CoreLoads.Length; i++)
-                _shown.CoreLoads[i] = Lerp(_shown.CoreLoads[i], _target.CoreLoads[i], f);
+            _cache?.Dispose();
+            _cache = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
+            _cacheDirty = true;
         }
-        else
+
+        if (_cacheDirty)
         {
-            _shown.CoreLoads = (double[])_target.CoreLoads.Clone();
+            using var cacheCanvas = new SKCanvas(_cache);
+            _options.Layer = FancyLayer.Static;
+            _exit = FancyRenderer.Render(cacheCanvas, width, height, scale, _model, now, _options);
+            _cacheDirty = false;
         }
-    }
 
-    private static double Lerp(double a, double b, double f)
-    {
-        if (double.IsNaN(a))
-            return b;
-        if (double.IsNaN(b))
-            return b;
-        return a + (b - a) * f;
-    }
+        canvas.DrawBitmap(_cache, 0, 0);
 
-    private static DashboardModel Clone(DashboardModel m)
-    {
-        string json = System.Text.Json.JsonSerializer.Serialize(m, SnapshotJson.Options);
-        return System.Text.Json.JsonSerializer.Deserialize<DashboardModel>(json, SnapshotJson.Options);
-    }
-
-    // Everything except the eased values is taken over directly.
-    private static void CopyStatic(DashboardModel from, DashboardModel to)
-    {
-        double stress = to.Stress;
-        double[] cores = to.CoreLoads;
-        var loads = to.Tiles.Select(x => (x.Load, x.Temp)).ToArray();
-        DashboardModel copy = Clone(from);
-        foreach (var p in typeof(DashboardModel).GetProperties())
-            p.SetValue(to, p.GetValue(copy));
-        to.Stress = stress;
-        to.CoreLoads = cores.Length == from.CoreLoads.Length ? cores : to.CoreLoads;
-        for (int i = 0; i < to.Tiles.Count && i < loads.Length; i++)
+        if (!ReducedMotion)
         {
-            to.Tiles[i].Load = loads[i].Load;
-            to.Tiles[i].Temp = loads[i].Temp;
+            _options.Layer = FancyLayer.Motion;
+            FancyRenderer.Render(canvas, width, height, scale, _model, now, _options);
         }
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
+        {
             _timer.Dispose();
+            _cache?.Dispose();
+        }
         base.Dispose(disposing);
     }
 }

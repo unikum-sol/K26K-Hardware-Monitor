@@ -28,6 +28,17 @@ namespace LibreHardwareMonitor.Windows.Forms.Telemetry;
 /// and computes stress, energy distribution, thermal headroom, fan effort and session energy.
 /// Call <see cref="Update"/> on the UI thread after a sensor update has finished.
 /// </summary>
+/// <summary>Weights of the stress index; shown in the Fancy dashboard.</summary>
+public static class StressWeights
+{
+    public const double Load = 0.40;
+    public const double Heat = 0.35;
+    public const double Memory = 0.15;
+    public const double Fans = 0.10;
+    /// <summary>The index is at least this share of the worst of load and heat.</summary>
+    public const double Floor = 0.80;
+}
+
 public sealed class SystemMetrics
 {
     private const int HistoryLength = 300;
@@ -192,12 +203,13 @@ public sealed class SystemMetrics
             m.HottestTemp = hottest.Temp;
         }
 
-        // ---------- Stress index: weighted mix, biased toward the worst component ----------
+        // ---------- Stress index ----------
         double cpuL = Nz(m.CpuLoad), gpuL = Nz(m.GpuLoad), memL = Nz(m.MemoryLoad), fanL = Nz(m.FanEffort), thermL = m.ThermalRatio * 100;
-        double weighted = 0.30 * cpuL + 0.25 * gpuL + 0.25 * thermL + 0.10 * memL + 0.10 * fanL;
-        double worst = Math.Max(cpuL, Math.Max(gpuL, thermL));
-        m.Stress = Clamp(0.5 * worst + 0.5 * weighted, 0, 100);
-        m.StressLoad = Math.Max(cpuL, gpuL);
+        // weighted sum of the four parts, but never below 80 % of the worst of load and heat
+        double loadL = Math.Max(cpuL, gpuL);
+        double weighted = StressWeights.Load * loadL + StressWeights.Heat * thermL + StressWeights.Memory * memL + StressWeights.Fans * fanL;
+        m.Stress = Clamp(Math.Max(weighted, StressWeights.Floor * Math.Max(loadL, thermL)), 0, 100);
+        m.StressLoad = loadL;
         m.StressHeat = thermL;
         m.StressMemory = memL;
         m.StressFans = fanL;

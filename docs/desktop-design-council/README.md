@@ -31,12 +31,13 @@ The blue title bar in the window captures is the Windows 10 system color; on Win
 
 | Metric | How it is computed |
 | --- | --- |
-| System stress (0 to 100) | 50 % worst of CPU load, GPU load and thermal ratio, 50 % weighted mix (CPU 30 %, GPU 25 %, thermal 25 %, memory 10 %, fan effort 10 %) |
+| System stress (0 to 100) | Since round 2: 0.40 × load (max of CPU and GPU) + 0.35 × heat (thermal ratio) + 0.15 × memory + 0.10 × fan effort, but at least 0.8 × max(load, heat). Round 0 and 1 used a less explainable mix |
 | Thermal ratio / headroom | Per component (CPU, GPU, drives): (T minus 30 °C) / (limit minus 30 °C); limit from the sensor if available, otherwise CPU 95, GPU 90, drives 75 °C. Headroom = smallest distance to a limit |
 | Energy distribution | CPU package and GPU power from sensors; rest from a PSU sensor if present, otherwise estimated (25 W board + 3 W per DIMM + 4 W per drive + 1.5 W per fan) and labeled EST |
 | Session energy | Total power integrated over the session time |
 | Fan effort | Average control % of board fans, otherwise RPM relative to the highest RPM seen |
-| Headroom ring | 100 minus stress |
+| Thermal headroom ring | Kelvin to the nearest limit; since round 2 the ring shows the reserve that is left (full = plenty of room) |
+| Stress composition | The four parts of the index (load, heat, memory, fans), each 0 to 100 (since round 1) |
 
 ---
 
@@ -77,3 +78,39 @@ Fancy dashboard
 - State not by color only: `▲ HOT`, `WARM`, `▲ HIGH LOAD`; the state row at the bottom is a read-only indicator, no longer button-like.
 - BOARD tile renamed to FANS; power scope with a scale and MIN / MAX markers; orbit labels on large layouts.
 - Calmer: scanlines at 5 %, less glow, slower pulses.
+
+## Round 1: scores
+
+| | M1 Opus | M2 Sonnet | M3 Sonnet | M4 Haiku |
+| --- | :-: | :-: | :-: | :-: |
+| Overall | 7 | 8 | 8 | 7 |
+| Sci-Fi | 6 | 8 | 8 | 6 |
+| Fancy | 8 | 8 | 8 | 8 |
+
+**Shared criticism**
+
+1. Sci-Fi plot: the legend is missing, the rotated axis titles with units still look like Classic, separators between stacked axes are hard to see, the grid is too faint.
+2. Sci-Fi grid: hardware rows do not stand out from group rows; dead sensors show `0` or `-` like real values; the off cells of the meters are almost invisible.
+3. Fancy: the stress composition shows the parts but not their weights; the headroom ring fills up as the reserve shrinks (reads backwards); missing CPU values are not explained.
+4. Fancy core matrix: warm and hot cores differ by color only; the left column ends with empty space.
+5. Power scope: a fixed scale flattens idle curves; min and max are not visible at a glance.
+6. Reduced motion should follow the Windows setting; no renders at 150 % scaling.
+
+## Round 2: changes
+
+Sci-Fi main window
+- Plot: legend in the top right corner, horizontal axis heads (`TEMPERATURE // °C`) instead of rotated titles, dashed separators between stacked axes, stronger major and minor grid.
+- Grid: hardware rows get a gradient band and an accent bar; sensors without a reading show `n/a`, their min and max show `-`; meter off cells brighter (`#33536A`).
+
+Fancy dashboard
+- Stress composition shows the weight of every part (`× 0.40`) and the formula line.
+- The headroom ring shows the reserve that is left: full means plenty of room.
+- A note explains values that are not available without administrator rights.
+- Core matrix: hot cores marked with ▲, warm cores with a dashed border, the load number below the label.
+- Left column: legend under the thermals and a new ACTIVITY block with a load sparkline.
+- Power scope scales automatically to the data (nice steps), min and max in the block header.
+- Dim color raised to `#9CC4B1`, stronger tracks (`#4A7A64`).
+
+Both
+- Reduced motion is on by default when Windows client area animations are off.
+- Renders at 150 % scaling added to the capture set (`*-150pct.png`).
