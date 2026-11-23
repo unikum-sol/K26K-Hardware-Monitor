@@ -14,8 +14,15 @@ namespace LibreHardwareMonitor.Windows.Forms;
 public static class Program
 {
     [STAThread]
-    public static void Main()
+    public static void Main(string[] args)
     {
+        // K26K: render a saved dashboard snapshot to a PNG (used for design reviews, needs no hardware access).
+        if (args.Length > 0 && args[0] == "--render-snapshot")
+        {
+            Environment.Exit(Telemetry.SnapshotJson.RenderFromCommandLine(args));
+            return;
+        }
+
         if (!AllRequiredFilesAvailable())
             Environment.Exit(0);
 

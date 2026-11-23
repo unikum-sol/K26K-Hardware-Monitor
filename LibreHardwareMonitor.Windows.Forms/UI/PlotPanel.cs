@@ -96,6 +96,8 @@ public class PlotPanel : UserControl
     public void ApplyTheme()
     {
         _model.Background = Theme.Current.PlotBackgroundColor.ToOxyColor();
+        // K26K: designs can use their own plot font (OxyPlot's default is Segoe UI).
+        _model.DefaultFont = Theme.Current.PlotFontFamily ?? "Segoe UI";
         _model.PlotAreaBorderColor = Theme.Current.PlotBorderColor.ToOxyColor();
         foreach (Axis axis in _model.Axes)
         {

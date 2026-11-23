@@ -23,11 +23,12 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
                     _current.Apply(form);
                 }
 
-                Init();
+                _current.InstallTreeRenderers();
             }
         }
 
-        private static void Init()
+        // K26K: themes can draw the tree glyphs (expander, checkbox, column header) their own way.
+        protected virtual void InstallTreeRenderers()
         {
             TreeViewAdv.CustomPlusMinusRenderFunc = (g, rect, isExpanded) =>
             {
@@ -112,6 +113,9 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
                             _all.Add((Theme)type.GetConstructor(new Type[] { }).Invoke(new object[] { }));
                         }
                     }
+
+                    // K26K: designs such as Sci-Fi are themes too, but not part of the Classic theme menu.
+                    _all.RemoveAll(x => !x.ListedInThemeMenu);
                 }
                 return _all.OrderBy(x => x.DisplayName).ToList();
             }
@@ -164,6 +168,12 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
 
         public string Id { get; }
         public string DisplayName { get; }
+
+        // K26K: false for themes that belong to a design (e.g. Sci-Fi) instead of the Classic theme menu.
+        public virtual bool ListedInThemeMenu => true;
+
+        // K26K: font family for plot texts; null keeps the OxyPlot default.
+        public virtual string PlotFontFamily => null;
         public abstract Color BackgroundColor { get; }
         public abstract Color ForegroundColor { get; }
         public abstract Color HyperlinkColor { get; }
