@@ -98,7 +98,8 @@ public sealed partial class MainForm
         splitContainer.Panel1.Paint += SciFiPanel_Paint;
         splitContainer.Panel2.Paint += SciFiPanel_Paint;
 
-        string saved = _settings.GetValue("design", "scifi");
+        // Sci-Fi is the default, except with Windows high contrast, where Classic follows the system colors
+        string saved = _settings.GetValue("design", System.Windows.Forms.SystemInformation.HighContrast ? "classic" : "scifi");
         string[] args = Environment.GetCommandLineArgs();
         int designArg = Array.IndexOf(args, "--design");
         if (designArg >= 0 && designArg + 1 < args.Length)
@@ -230,6 +231,7 @@ public sealed partial class MainForm
             splitContainer.Panel2.Padding = new Padding(10, 26, 10, 10);
             themeMenuItem.Enabled = false;
             SciFiBarControl.Active = true;
+            SciFiTheme.ValueHeaderIndent = _barControl.BarWidth + 2;
             // narrower name column; the tree hands the freed width to the value column (room for the meter)
             if (!_valueColumnWidened)
             {
@@ -538,10 +540,35 @@ public sealed partial class MainForm
     // Hardware rows get a tinted band with an accent bar, so the devices stand out from their sensors.
     private void SciFiTree_RowDraw(object sender, Aga.Controls.Tree.TreeViewRowDrawEventArgs e)
     {
-        if (_design != UiDesign.SciFi || !(e.Node.Tag is HardwareNode))
+        if (_design != UiDesign.SciFi)
             return;
 
         Rectangle r = new Rectangle(0, e.RowRect.Top, treeView.ClientSize.Width + Math.Abs(treeView.OffsetX), e.RowRect.Height);
+        if (!(e.Node.Tag is HardwareNode))
+        {
+            // rows inside a device get a thin rail on the left edge, so every device reads as one framed block
+            bool insideDevice = false;
+            for (Aga.Controls.Tree.TreeNodeAdv p = e.Node.Parent; p != null; p = p.Parent)
+            {
+                if (p.Tag is HardwareNode)
+                {
+                    insideDevice = true;
+                    break;
+                }
+            }
+            if (!insideDevice)
+                return;
+
+            using (var rail = new Pen(Color.FromArgb(110, SciFiColors.Accent)))
+                e.Graphics.DrawLine(rail, r.Left + 1, r.Top, r.Left + 1, r.Bottom);
+            if (e.Node.Tag is TypeNode)
+            {
+                using var tick = new Pen(Color.FromArgb(170, SciFiColors.Accent));
+                e.Graphics.DrawLine(tick, r.Left + 1, r.Top + r.Height / 2, r.Left + 7, r.Top + r.Height / 2);
+            }
+            return;
+        }
+
         using (var band = new System.Drawing.Drawing2D.LinearGradientBrush(r, Color.FromArgb(255, 12, 38, 46), SciFiColors.Panel, System.Drawing.Drawing2D.LinearGradientMode.Horizontal))
             e.Graphics.FillRectangle(band, r);
         using (var bar = new SolidBrush(SciFiColors.Accent))

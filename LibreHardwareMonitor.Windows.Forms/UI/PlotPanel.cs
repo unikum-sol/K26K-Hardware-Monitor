@@ -145,9 +145,12 @@ public class PlotPanel : UserControl
                     _legend = new Legend();
                     _model.Legends.Add(_legend);
                 }
+                // one entry per line in axis order; more than four entries continue in a second column
                 _legend.LegendPosition = LegendPosition.BottomLeft;
                 _legend.LegendPlacement = LegendPlacement.Outside;
-                _legend.LegendOrientation = LegendOrientation.Horizontal;
+                _legend.LegendOrientation = LegendOrientation.Vertical;
+                _legend.LegendMaxHeight = 4 * 19 * _dpiYScale + 14 * _dpiYScale;
+                _legend.LegendLineSpacing = 3 * _dpiYScale;
                 _legend.LegendItemAlignment = OxyPlot.HorizontalAlignment.Left;
                 _legend.LegendSymbolLength = 22 * _dpiXScale;
                 _legend.LegendFontSize = 12;
@@ -172,8 +175,10 @@ public class PlotPanel : UserControl
     // Rotated axis titles, unless the design shows horizontal heads (only possible with stacked axes).
     private void ApplyAxisTitles()
     {
-        foreach (Axis axis in _axes.Values)
+        foreach (KeyValuePair<SensorType, LinearAxis> pair in _axes)
         {
+            LinearAxis axis = pair.Value;
+            axis.MinimumRange = Theme.Current.PlotMinimumSpans ? MinimumSpan(pair.Key) : 0;
             if (string.IsNullOrEmpty(axis.Key))
                 continue;
             axis.Title = AxisHeadsActive ? null : Theme.Current.PlotUppercaseTitles ? axis.Key.ToUpperInvariant() : axis.Key;
@@ -181,6 +186,21 @@ public class PlotPanel : UserControl
             axis.TitleFormatString = AxisHeadsActive ? " " : "{0} [{1}]";
         }
     }
+
+    // Smallest span an autoscaled axis shows, so a 0.4 K wobble does not fill the whole height.
+    private double MinimumSpan(SensorType type) => type switch
+    {
+        SensorType.Temperature => _unitManager.TemperatureUnit == TemperatureUnit.Fahrenheit ? 18 : 10,
+        SensorType.Load or SensorType.Control or SensorType.Level or SensorType.Humidity => 10,
+        SensorType.Power => 10,
+        SensorType.Clock => 200,
+        SensorType.Fan => 300,
+        SensorType.Voltage => 0.2,
+        SensorType.Current => 1,
+        SensorType.Flow => 50,
+        SensorType.Data => 1,
+        _ => 0
+    };
 
     // K26K: line width, line style per series of one axis, legend titles and end markers.
     private void ApplySeriesStyle()

@@ -194,6 +194,9 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
         public virtual double PlotMinStrokeThickness => 0;
         public virtual bool PlotVaryLineStyles => false;
         public virtual bool PlotEndMarkers => false;
+
+        // K26K: autoscaled value axes never zoom below a sensible span (noise must not look like a jump)
+        public virtual bool PlotMinimumSpans => false;
         public abstract Color BackgroundColor { get; }
         public abstract Color ForegroundColor { get; }
         public abstract Color HyperlinkColor { get; }

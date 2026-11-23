@@ -79,6 +79,10 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
         public override double PlotMinStrokeThickness => 1.75;
         public override bool PlotVaryLineStyles => true;
         public override bool PlotEndMarkers => true;
+        public override bool PlotMinimumSpans => true;
+
+        /// <summary>Indent of the VALUE header, so it stands above the numbers and not above the meters.</summary>
+        public static int ValueHeaderIndent { get; set; }
 
         public override Color BackgroundColor => SciFiColors.Background;
         public override Color ForegroundColor => SciFiColors.Text;
@@ -164,7 +168,8 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
             TreeViewAdv.CustomColumnTextRenderFunc = (g, rect, font, text) =>
             {
                 Font header = HeaderFont;
-                var r = new Rectangle(rect.Left + 4, rect.Top, rect.Width - 4, rect.Height);
+                int indent = string.Equals(text, "Value", System.StringComparison.OrdinalIgnoreCase) ? ValueHeaderIndent : 0;
+                var r = new Rectangle(rect.Left + 4 + indent, rect.Top, rect.Width - 4 - indent, rect.Height);
                 TextRenderer.DrawText(g, text?.ToUpperInvariant() ?? string.Empty, header, r, SciFiColors.Dim,
                                       TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
             };

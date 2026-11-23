@@ -147,3 +147,42 @@ Fancy dashboard
 - Fans are never drawn in alarm colors (fan effort is no alarm); the fans tile says `BOARD 44°C`.
 - Warm cores get a 1.75 px dashed border; the power scope labels keep at least 28 px apart.
 - Less glow (smaller radius and alpha) and a new menu option **View, Design, Glow Effects** to switch all glow off (`fancy-load-no-glow-1920.png`). Motion: node pulses at most 0.75 Hz, the core breathes at 0.25 Hz, no flashing areas.
+
+## Round 3: scores
+
+| | M1 Opus | M2 Sonnet | M3 Sonnet | M4 Haiku |
+| --- | :-: | :-: | :-: | :-: |
+| Overall | 8 | **9** | **9** | 8 |
+| Sci-Fi | 8 | 8.5 | 8.5 | 7 |
+| Fancy | **9** | **9** | **9** | 8 |
+
+Fancy passed for three members. **Shared criticism**
+
+1. Sci-Fi plot (named by three members as the one blocker): autoscaled axes zoom into noise, a 0.4 K wobble fills the whole height and looks like an alarm.
+2. Sci-Fi legend: columns of unequal length; the VALUE header stands above the meters, not above the numbers; the grid still reads like a table next to the HUD header.
+3. Missing values shown three ways (`--`, `n/a`, empty).
+4. Fancy core: `▲ HIGH LOAD` and `SYSTEM STRESS` touch the ring at 1366 px and 150 %; the stress number is pink while the state word is amber.
+5. Fancy: a start-up spike in ACTIVITY and POWER; ACTIVITY and POWER squeezed at 1366 px; activity scales jump between arbitrary values; the headroom ring does not say that the CPU is missing.
+6. Header: `● ▲ HIGH LOAD` marks the state twice. Requested checks: 125 % scaling, Windows animations off, high contrast.
+
+## Round 4: changes
+
+Sci-Fi main window
+- Minimum spans for autoscaled axes: 10 K (18 °F) for temperatures, 10 % for loads and controls, 10 W, 200 MHz, 300 RPM, 0.2 V and so on. Noise stays calm; zooming by hand is still possible.
+- Legend in one column in axis order (a second column starts after four entries).
+- VALUE header aligned with the numbers; a thin accent rail runs down the left edge of every device block with a tick at each group, so the devices read as framed modules.
+- Empty meter cells `#5A7B94`.
+
+Fancy dashboard
+- Texts in the core are fitted to the chord of the inner ring; when the core is too small, the full state goes on a framed plate below the core (never shortened).
+- Stress number, ring and state word share one color scale: the state decides (nominal mint, high load amber, thermal limit pink). The header stress cell follows the same rule.
+- The first two readings after the start are left out of all histories (no start-up spike).
+- ACTIVITY scale in three fixed steps (25, 50, 100 %); in short columns the legend moves into the heading line and the scale onto a plate, so the chart keeps its height. Smaller headroom ring in short columns, more room for POWER.
+- Headroom says `CPU TEMP n/a, NOT COUNTED` when the CPU temperature is missing.
+- Orbit labels 12 px in the full dim color; more distance between nodes and their callouts.
+
+Both
+- Missing values are `n/a` everywhere (header, tiles, tree).
+- The state pill shows the dot only (`● HIGH LOAD`).
+- With Windows high contrast on, the first start uses Classic (system colors); Reduced Motion already follows the Windows animation setting.
+- Renders at 125 % added (`fancy-load-125pct.png`, `header-load-125pct.png`).

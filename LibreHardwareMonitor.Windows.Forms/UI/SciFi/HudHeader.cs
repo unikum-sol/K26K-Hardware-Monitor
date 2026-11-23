@@ -148,7 +148,8 @@ public sealed class HudHeader : SkiaView
         Fui.Text(c, "FANCY  ▸", button.MidX, button.MidY + 4 * k, 11.5f * k, hover ? Bg : Accent, "Bold", SKTextAlign.Center, 1.4f * k);
 
         SKColor stateColor = m.State == "THERMAL" ? Alarm : m.State == "LOAD" ? Cool : Accent;
-        string stateText = m.State == "THERMAL" || m.State == "LOAD" ? "▲ " + SystemMetrics.StateLabel(m.State) : "SYSTEM NOMINAL";
+        // the dot in front marks the state; no second symbol
+        string stateText = m.State == "THERMAL" || m.State == "LOAD" ? SystemMetrics.StateLabel(m.State) : "SYSTEM NOMINAL";
         float sw = Fui.Measure(stateText, 10.5f * k, "Bold", 1.2f * k) + 30 * k;
         var state = new SKRect(button.Left - 16 * k - sw, midY - 14 * k, button.Left - 16 * k, midY + 2 * k);
         using (SKPaint p = Fui.Stroke(stateColor.WithAlpha(0.8f), 1 * k))
@@ -178,7 +179,7 @@ public sealed class HudHeader : SkiaView
             ("RAM", Fui.Pct(m.MemoryLoad), double.IsNaN(m.MemoryUsedGb) ? "" : m.MemoryUsedGb.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " GB", m.MemoryLoad / 100, m.MemoryLoad >= 90),
             ("PWR", Fui.Watts(m.TotalPower), m.OtherPowerEstimated ? "EST" : "MEAS", Math.Min(1, m.TotalPower / 600), false),
             ("NET", SystemMetrics.Rate(m.NetDown), "▲ " + SystemMetrics.Rate(m.NetUp), double.NaN, false),
-            ("STRESS", m.Stress.ToString("0", System.Globalization.CultureInfo.InvariantCulture), m.State, m.Stress / 100, m.Stress >= 80)
+            ("STRESS", m.Stress.ToString("0", System.Globalization.CultureInfo.InvariantCulture), SystemMetrics.StateLabel(m.State), m.Stress / 100, false)
         };
 
         float cellW = (right - left) / cells.Length;
@@ -188,11 +189,15 @@ public sealed class HudHeader : SkiaView
             float cx = left + i * cellW + 6 * k;
             float valueSize = 16 * k;
             Fui.Text(c, cell.Label, cx, 29 * k, 10 * k, Dim, "Bold", spacing: 1.2f * k);
-            float vw = Fui.Text(c, cell.Value, cx, 48 * k, valueSize, cell.Hot ? Alarm : Data, "Medium");
-            Fui.Text(c, cell.Sub, cx + vw + 6 * k, 48 * k, 10.5f * k, Dim, "Medium");
+            // the stress cell takes the state color, the same scale as the state pill and Fancy
+            bool stress = cell.Label == "STRESS";
+            SKColor valueColor = stress ? (m.State == "NOMINAL" ? Data : stateColor) : cell.Hot ? Alarm : Data;
+            SKColor barColor = stress ? stateColor : cell.Hot ? Alarm : Accent;
+            float vw = Fui.Text(c, cell.Value, cx, 48 * k, valueSize, valueColor, "Medium");
+            Fui.Text(c, cell.Sub, cx + vw + 6 * k, 48 * k, 10.5f * k, stress && m.State != "NOMINAL" ? stateColor : Dim, "Medium");
             if (!double.IsNaN(cell.Fraction))
                 Fui.Segments(c, new SKRect(cx, 54 * k, cx + Math.Min(cellW - 16 * k, 92 * k), 56.5f * k), cell.Fraction, 12,
-                             cell.Hot ? Alarm : Accent, Rule, 1.5f * k);
+                             barColor, Rule, 1.5f * k);
             if (i > 0)
             {
                 using SKPaint sep = Fui.Stroke(Rule);

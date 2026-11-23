@@ -59,7 +59,7 @@ public sealed class SciFiBarControl : NodeControl
         Color on = value >= 90 ? SciFiColors.Alarm : value >= 70 ? SciFiColors.Cool : SciFiColors.Accent;
 
         using var onBrush = new SolidBrush(on);
-        using var offBrush = new SolidBrush(ColorTranslator.FromHtml("#4A6A82"));
+        using var offBrush = new SolidBrush(ColorTranslator.FromHtml("#5A7B94"));
         for (int i = 0; i < Segments; i++)
             context.Graphics.FillRectangle(i < lit ? onBrush : offBrush, r.Left + i * (cell + 1), y, cell, h);
     }

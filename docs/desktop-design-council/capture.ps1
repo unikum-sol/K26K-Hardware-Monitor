@@ -32,6 +32,8 @@ Render "load" "fancy-load-no-glow-1920.png" "1920x1080" @("--no-glow")
 Render "load" "header-load.png" "1500x64" @("--view", "header")
 # 150 % display scaling: the dashboard at 1920x1080 logical pixels and the header with scale 1.5
 Render "load" "fancy-load-150pct.png" "2880x1620"
+Render "load" "fancy-load-125pct.png" "2400x1350"
+Render "load" "header-load-125pct.png" "1875x80" @("--view", "header", "--scale", "1.25")
 Render "load" "header-load-150pct.png" "2250x96" @("--view", "header", "--scale", "1.5")
 
 # ---------- live window captures ----------

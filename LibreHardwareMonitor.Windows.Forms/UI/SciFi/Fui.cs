@@ -170,14 +170,14 @@ public static class Fui
     public static string Temp(double celsius, bool fahrenheit)
     {
         if (double.IsNaN(celsius))
-            return "--";
+            return "n/a";
         double v = fahrenheit ? celsius * 1.8 + 32 : celsius;
         return v.ToString("0", CultureInfo.InvariantCulture) + (fahrenheit ? "°F" : "°C");
     }
 
-    public static string Pct(double value) => double.IsNaN(value) ? "--" : value.ToString("0", CultureInfo.InvariantCulture) + "%";
+    public static string Pct(double value) => double.IsNaN(value) ? "n/a" : value.ToString("0", CultureInfo.InvariantCulture) + "%";
 
-    public static string Watts(double value) => double.IsNaN(value) ? "--" : value.ToString(value < 10 ? "0.0" : "0", CultureInfo.InvariantCulture) + " W";
+    public static string Watts(double value) => double.IsNaN(value) ? "n/a" : value.ToString(value < 10 ? "0.0" : "0", CultureInfo.InvariantCulture) + " W";
 
     public static string Duration(double seconds)
     {

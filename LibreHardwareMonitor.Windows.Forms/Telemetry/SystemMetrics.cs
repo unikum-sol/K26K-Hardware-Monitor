@@ -51,6 +51,10 @@ public sealed class SystemMetrics
     private double _lastSeconds = double.NaN;
     private double _energyWh;
     private double _maxFanRpm;
+    private int _updates;
+
+    // the first readings after the start are not settled yet (loads and power spike), so the histories skip them
+    private const int SettleUpdates = 2;
 
     public DashboardModel Current { get; private set; } = new();
 
@@ -218,10 +222,11 @@ public sealed class SystemMetrics
         m.State = m.ThermalRatio >= 0.85 ? "THERMAL" : m.Stress >= 60 ? "LOAD" : "NOMINAL";
 
         // ---------- History ----------
-        m.PowerHistory = Push(_power, m.TotalPower);
-        m.StressHistory = Push(_stress, m.Stress);
-        m.CpuHistory = Push(_cpu, cpuL);
-        m.GpuHistory = Push(_gpu, gpuL);
+        bool settled = ++_updates > SettleUpdates;
+        m.PowerHistory = settled ? Push(_power, m.TotalPower) : _power.ToArray();
+        m.StressHistory = settled ? Push(_stress, m.Stress) : _stress.ToArray();
+        m.CpuHistory = settled ? Push(_cpu, cpuL) : _cpu.ToArray();
+        m.GpuHistory = settled ? Push(_gpu, gpuL) : _gpu.ToArray();
 
         // ---------- Tiles for the orbital view ----------
         if (cpu != null)
