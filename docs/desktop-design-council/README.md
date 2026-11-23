@@ -321,3 +321,17 @@ Sci-Fi main window
 - Meter legend in the status strip at 12 px.
 - New capture `window-scifi-load.png`: the real window while every CPU core runs a busy loop (started by `capture.ps1`, each loop ends after 100 s). It shows the load colors that idle captures cannot show: full pink meters with `▲ 100,0 %`, the `HIGH LOAD` pill and the stress value in the header turning orange.
 - Not changed on purpose: a device without readable sensors gets no `// 0 CH`; with it, the long board name lost its end.
+
+## Round 10: scores
+
+| | M1 Opus | M2 Sonnet | M3 Sonnet | M4 Haiku |
+| --- | :-: | :-: | :-: | :-: |
+| Overall | **9** | **9** | **9** | 8 |
+| Sci-Fi | **9** | **9** | **9** | 8 |
+| Fancy | **9** | **9** | **9** | **9** |
+
+The load capture convinced M1 to M3 that the colors carry meaning (pink meters plus `▲`, legend in the status strip). M4 keeps Sci-Fi at 8: the device heads could be a bit stronger, and idle and load "look like two separate pictures rather than one instrument with states".
+
+Found through the load capture and fixed right away (M1, M2): the header segments for CPU, GPU and RAM now follow the same steps as the grid meters (pink at 90 %, orange at 70 %; the value turns pink at 90 %), and stacked axes keep 5 % room above the highest value, so a curve at 100 % is no longer hidden by the separator.
+
+**Status after round 10**: M1, M2 and M3 have given 9 in all three categories since round 4 and confirmed it in every round since. M4 gives Fancy 9 since round 5 and Sci-Fi 8 since round 5; its points have moved from concrete defects to matters of degree.

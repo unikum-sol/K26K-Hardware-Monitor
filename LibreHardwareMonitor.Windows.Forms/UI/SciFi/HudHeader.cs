@@ -191,8 +191,10 @@ public sealed class HudHeader : SkiaView
             Fui.Text(c, cell.Label, cx, 29 * k, 10 * k, Dim, "Bold", spacing: 1.2f * k);
             // the stress cell takes the state color, the same scale as the state pill and Fancy
             bool stress = cell.Label == "STRESS";
-            SKColor valueColor = stress ? (m.State == "NOMINAL" ? Data : stateColor) : cell.Hot ? Alarm : Data;
-            SKColor barColor = stress ? stateColor : cell.Hot ? Alarm : Accent;
+            SKColor valueColor = stress ? (m.State == "NOMINAL" ? Data : stateColor) : cell.Hot || cell.Fraction >= 0.9 ? Alarm : Data;
+            // the load segments follow the same steps as the meters in the grid (< 70 % cyan, ≥ 70 % orange, ≥ 90 % pink)
+            SKColor stepColor = cell.Label == "PWR" ? Accent : cell.Fraction >= 0.9 ? Alarm : cell.Fraction >= 0.7 ? Cool : Accent;
+            SKColor barColor = stress ? stateColor : cell.Hot ? Alarm : stepColor;
             float vw = Fui.Text(c, cell.Value, cx, 48 * k, valueSize, valueColor, "Medium");
             // (the state itself is only in the pill on the right, not repeated here)
             Fui.Text(c, cell.Sub, cx + vw + 6 * k, 48 * k, 10.5f * k, Dim, "Medium");

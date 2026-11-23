@@ -179,6 +179,8 @@ public class PlotPanel : UserControl
         {
             LinearAxis axis = pair.Value;
             axis.MinimumRange = Theme.Current.PlotMinimumSpans ? MinimumSpan(pair.Key) : 0;
+            // a little room above the highest value, so a curve at 100 % is not hidden by the separator
+            axis.MaximumPadding = Theme.Current.PlotMinimumSpans ? 0.05 : 0.01;
             if (string.IsNullOrEmpty(axis.Key))
                 continue;
             axis.Title = AxisHeadsActive ? null : Theme.Current.PlotUppercaseTitles ? axis.Key.ToUpperInvariant() : axis.Key;
