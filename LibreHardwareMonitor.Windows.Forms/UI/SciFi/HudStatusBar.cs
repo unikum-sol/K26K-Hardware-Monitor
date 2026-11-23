@@ -86,7 +86,7 @@ public sealed class HudStatusBar : SkiaView
         var legend = new (string Label, SKColor Color)[] { ("< 70 %", Fui.Hex("#00E0E8")), ("≥ 70 %", Fui.Hex("#F0A030")), ("≥ 90 %", Fui.Hex("#FF40A0")) };
         float legendW = Fui.Measure("METER", 9.5f * k, "Bold", 0.8f * k) + 10 * k;
         foreach (var item in legend)
-            legendW += 14 * k + Fui.Measure(item.Label, 10 * k, "Medium") + 14 * k;
+            legendW += 14 * k + Fui.Measure(item.Label, 12 * k, "Medium") + 14 * k;
         float lx = width - 16 * k - machineW - 34 * k - legendW;
         if (lx > x + 10 * k)
         {
@@ -96,7 +96,7 @@ public sealed class HudStatusBar : SkiaView
                 using (SKPaint sw = Fui.Fill(item.Color))
                     c.DrawRect(lx, y - 7 * k, 9 * k, 5 * k, sw);
                 lx += 14 * k;
-                lx += Fui.Text(c, item.Label, lx, y, 10 * k, HudHeader.Dim, "Medium") + 14 * k;
+                lx += Fui.Text(c, item.Label, lx, y, 12 * k, HudHeader.Dim, "Medium") + 14 * k;
             }
         }
     }

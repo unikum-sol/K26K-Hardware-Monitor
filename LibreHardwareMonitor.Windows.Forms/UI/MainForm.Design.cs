@@ -543,6 +543,7 @@ public sealed partial class MainForm
             e.TextColor = SciFiColors.Accent;
             e.Font = _sciFiDeviceFont ??= FontManager.CreateFont(10.5f, FontStyle.Bold);
             int channels = CountSensors(node);
+            // no "0 CH": a board whose sensors need admin rights would only lose the end of its (long) name
             e.Text = e.Text.ToUpperInvariant() + (channels > 0 ? "   // " + channels.ToString(System.Globalization.CultureInfo.InvariantCulture) + " CH" : "");
         }
         else if (node is TypeNode && sender == nodeTextBoxText)
@@ -626,6 +627,20 @@ public sealed partial class MainForm
         int right = treeView.ClientSize.Width - 6;
         using (var notch = new SolidBrush(Color.FromArgb(160, SciFiColors.Accent)))
             e.Graphics.FillRectangle(notch, right - 18, r.Top + r.Height / 2 - 1, 18, 2);
+
+        // instrument details: a segment bar before the notch and corner brackets at both ends of the head
+        using (var seg = new SolidBrush(Color.FromArgb(110, SciFiColors.Accent)))
+        {
+            for (int i = 0; i < 6; i++)
+                e.Graphics.FillRectangle(seg, right - 30 - i * 7, r.Top + r.Height / 2 - 2, 4, 4);
+        }
+        using (var corner = new Pen(SciFiColors.Accent))
+        {
+            e.Graphics.DrawLine(corner, right, r.Top + 2, right, r.Top + 6);
+            e.Graphics.DrawLine(corner, right - 4, r.Top + 2, right, r.Top + 2);
+            e.Graphics.DrawLine(corner, right, r.Bottom - 3, right, r.Bottom - 7);
+            e.Graphics.DrawLine(corner, right - 4, r.Bottom - 3, right, r.Bottom - 3);
+        }
     }
 
     // Each kind of value gets its own color, so the grid reads like an instrument panel.

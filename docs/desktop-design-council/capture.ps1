@@ -71,12 +71,17 @@ $config = @"
 </appSettings></configuration>
 "@
 
-function Capture($design, $file) {
+function Capture($design, $file, [switch]$Load) {
   Set-Content -Path (Join-Path $runDir "K26KHardwareMonitor.config") -Value $config -Encoding UTF8
   $p = Start-Process (Join-Path $runDir "K26KHardwareMonitor.exe") -ArgumentList @("--design", $design) -PassThru
   # wait until the main window exists, then give it time to collect data
   $h = [IntPtr]::Zero
   for ($i = 0; $i -lt 60 -and $h -eq [IntPtr]::Zero; $i++) { Start-Sleep -Seconds 1; $p.Refresh(); $h = $p.MainWindowHandle }
+  if ($Load) {
+    # real CPU load for the meter colors: one busy loop per core, each ends by itself after 100 s
+    $busy = "`$e = (Get-Date).AddSeconds(100); while ((Get-Date) -lt `$e) { }"
+    1..[Environment]::ProcessorCount | ForEach-Object { Start-Process powershell -ArgumentList @("-NoProfile", "-Command", $busy) -WindowStyle Hidden | Out-Null }
+  }
   Start-Sleep -Seconds 75
   $p.Refresh()
   $h = $p.MainWindowHandle
@@ -97,5 +102,6 @@ function Capture($design, $file) {
 Capture "scifi" "window-scifi.png"
 Capture "fancy" "window-fancy.png"
 Capture "classic" "window-classic.png"
+Capture "scifi" "window-scifi-load.png" -Load
 
 Get-ChildItem $out | Select-Object Name, Length

@@ -303,3 +303,21 @@ Fancy dashboard
 Sci-Fi main window
 - Device rows as heads of their own: 10.5 pt bold accent text with the sensor count (`AMD RYZEN 5 7600  // 48 CH`), an accent line on top that fades out to the right, a fine line below and a notch at the right end. The hierarchy now reads device, group, sensor.
 - The status strip explains the meter colors: `METER  < 70 %  ≥ 70 %  ≥ 90 %` (only when there is room).
+
+## Round 9: scores
+
+| | M1 Opus | M2 Sonnet | M3 Sonnet | M4 Haiku |
+| --- | :-: | :-: | :-: | :-: |
+| Overall | **9** | **9** | **9** | 8 |
+| Sci-Fi | **9** | **9** | **9** | 8 |
+| Fancy | **9** | **9** | **9** | **9** |
+
+**Remaining criticism (M4)**: the device heads are clear but thin; a head with a frame corner or a segment bar would close the gap to the HUD header. The meter colors cannot be checked in idle captures. M1: the board head has no channel count. M3: the meter legend could be 12 px.
+
+## Round 10: changes
+
+Sci-Fi main window
+- Device heads end in a segment bar and corner brackets at the right edge, next to the notch.
+- Meter legend in the status strip at 12 px.
+- New capture `window-scifi-load.png`: the real window while every CPU core runs a busy loop (started by `capture.ps1`, each loop ends after 100 s). It shows the load colors that idle captures cannot show: full pink meters with `▲ 100,0 %`, the `HIGH LOAD` pill and the stress value in the header turning orange.
+- Not changed on purpose: a device without readable sensors gets no `// 0 CH`; with it, the long board name lost its end.
