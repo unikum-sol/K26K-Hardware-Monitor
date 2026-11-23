@@ -174,6 +174,14 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
 
         // K26K: font family for plot texts; null keeps the OxyPlot default.
         public virtual string PlotFontFamily => null;
+
+        // K26K: gap between stacked plot axes (fraction of the height), a hint shown while nothing is plotted, uppercase axis titles.
+        public virtual double PlotStackGap => 0;
+        public virtual string PlotEmptyHint => null;
+        public virtual bool PlotUppercaseTitles => false;
+
+        // K26K: label format of the time axis; null keeps the original "h:mm".
+        public virtual string PlotTimeFormat => null;
         public abstract Color BackgroundColor { get; }
         public abstract Color ForegroundColor { get; }
         public abstract Color HyperlinkColor { get; }

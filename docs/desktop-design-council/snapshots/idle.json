@@ -1297,9 +1297,9 @@
       "Detail": "17.5 / 31 GB"
     },
     {
-      "Kind": "board",
-      "Label": "BOARD",
-      "Name": "Gigabyte B650E AORUS ELITE X AX ICE",
+      "Kind": "fans",
+      "Label": "FANS",
+      "Name": "5 fans",
       "Load": 38,
       "Temp": 36,
       "TempLimit": 80,
@@ -1325,6 +1325,27 @@
       "TempLimit": 90,
       "Power": "NaN",
       "Detail": "↓ 180 KB/s"
+    }
+  ],
+  "StressLoad": 6.2,
+  "StressHeat": 29,
+  "StressMemory": 56,
+  "StressFans": 38,
+  "Thermals": [
+    {
+      "Name": "CPU",
+      "Temp": 49,
+      "Limit": 95
+    },
+    {
+      "Name": "Drive Samsung SSD 970 EVO Plus 500GB",
+      "Temp": 41,
+      "Limit": 75
+    },
+    {
+      "Name": "GPU",
+      "Temp": 31,
+      "Limit": 90
     }
   ]
 }

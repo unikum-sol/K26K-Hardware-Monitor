@@ -29,13 +29,14 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
         public static readonly Color Panel = ColorTranslator.FromHtml("#0A1218");
         public static readonly Color PanelRaised = ColorTranslator.FromHtml("#0E1A22");
         public static readonly Color Text = ColorTranslator.FromHtml("#D8E8F0");
-        public static readonly Color Dim = ColorTranslator.FromHtml("#6A8292");
+        public static readonly Color Dim = ColorTranslator.FromHtml("#8CA3B3");
+        public static readonly Color Muted = ColorTranslator.FromHtml("#5F7584");
         public static readonly Color Accent = ColorTranslator.FromHtml("#00E0E8");
         public static readonly Color Data = ColorTranslator.FromHtml("#F0E040");
         public static readonly Color Cool = ColorTranslator.FromHtml("#F0A030");
         public static readonly Color Alarm = ColorTranslator.FromHtml("#FF40A0");
         public static readonly Color Rule = ColorTranslator.FromHtml("#1C2C3A");
-        public static readonly Color RuleStrong = ColorTranslator.FromHtml("#27404F");
+        public static readonly Color RuleStrong = ColorTranslator.FromHtml("#2C4A5C");
     }
 
     /// <summary>
@@ -61,12 +62,16 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
         };
 
         private static Font _headerFont;
-        private static Font HeaderFont => _headerFont ??= FontManager.CreateFont(7.5f, FontStyle.Bold);
+        private static Font HeaderFont => _headerFont ??= FontManager.CreateFont(8.5f, FontStyle.Bold);
 
         public SciFiTheme() : base("scifi", "Sci-Fi") { }
 
         public override bool ListedInThemeMenu => false;
         public override string PlotFontFamily => "Consolas";
+        public override double PlotStackGap => 0.035;
+        public override string PlotEmptyHint => "SELECT SENSORS IN THE GRID TO PLOT THEM";
+        public override bool PlotUppercaseTitles => true;
+        public override string PlotTimeFormat => "h:mm:ss";
 
         public override Color BackgroundColor => SciFiColors.Background;
         public override Color ForegroundColor => SciFiColors.Text;
@@ -130,7 +135,7 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
                 const int size = 11;
                 using (var back = new SolidBrush(SciFiColors.Panel))
                     g.FillRectangle(back, x - 1, y - 1, size + 3, size + 3);
-                using (var pen = new Pen(isChecked ? SciFiColors.Accent : SciFiColors.RuleStrong))
+                using (var pen = new Pen(isChecked ? SciFiColors.Accent : ColorTranslator.FromHtml("#5A7A8E")))
                     g.DrawRectangle(pen, x, y, size, size);
                 if (isChecked)
                 {

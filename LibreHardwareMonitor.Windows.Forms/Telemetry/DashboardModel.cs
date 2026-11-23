@@ -37,6 +37,11 @@ public sealed class DashboardModel
 
     // Computed metrics
     public double Stress { get; set; }
+    /// <summary>The four parts of the stress index, each 0..100: load (max of CPU/GPU), heat (thermal ratio), memory and fans.</summary>
+    public double StressLoad { get; set; }
+    public double StressHeat { get; set; }
+    public double StressMemory { get; set; }
+    public double StressFans { get; set; }
     public string State { get; set; } = "NOMINAL";
     public double ThermalRatio { get; set; }
     public double ThermalHeadroom { get; set; } = double.NaN;
@@ -87,6 +92,9 @@ public sealed class DashboardModel
     public double[] CpuHistory { get; set; } = new double[0];
     public double[] GpuHistory { get; set; } = new double[0];
 
+    /// <summary>Temperatures of the main components with their limits, hottest first.</summary>
+    public List<ThermalEntry> Thermals { get; set; } = new();
+
     /// <summary>Hardware nodes for the orbital view and the tile column.</summary>
     public List<HardwareTile> Tiles { get; set; } = new();
 }
@@ -104,4 +112,11 @@ public sealed class HardwareTile
     public double Power { get; set; } = double.NaN;
     /// <summary>Short secondary value, e.g. "4.9 GHz" or "↓ 1.2 MB/s".</summary>
     public string Detail { get; set; } = "";
+}
+
+public sealed class ThermalEntry
+{
+    public string Name { get; set; } = "";
+    public double Temp { get; set; }
+    public double Limit { get; set; }
 }

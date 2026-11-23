@@ -53,7 +53,11 @@ $config = @"
   <add key="mainForm.Width" value="1500" /><add key="mainForm.Height" value="940" />
   <add key="plotMenuItem" value="true" /><add key="plotLocation" value="2" />
   <add key="splitContainer.SplitterDistance" value="760" />
+  <add key="plotPanel.MinTimeSpan" value="0" /><add key="plotPanel.MaxTimeSpan" value="60" />
   <add key="minMenuItem" value="true" />
+  <add key="/amdcpu/0/Voltage/.expanded" value="false" /><add key="/amdcpu/0/Power/.expanded" value="false" />
+  <add key="/amdcpu/0/Clock/.expanded" value="false" /><add key="/amdcpu/0/Factor/.expanded" value="false" />
+  <add key="/lpc/it8689e/0/expanded" value="false" />
   <add key="/amdcpu/0/load/0/plot" value="true" />
   <add key="/gpu-nvidia/0/load/0/plot" value="true" />
   <add key="/ram/load/0/plot" value="true" />
@@ -67,7 +71,7 @@ function Capture($design, $file) {
   # wait until the main window exists, then give it time to collect data
   $h = [IntPtr]::Zero
   for ($i = 0; $i -lt 60 -and $h -eq [IntPtr]::Zero; $i++) { Start-Sleep -Seconds 1; $p.Refresh(); $h = $p.MainWindowHandle }
-  Start-Sleep -Seconds 12
+  Start-Sleep -Seconds 45
   $p.Refresh()
   $h = $p.MainWindowHandle
   if ($h -ne [IntPtr]::Zero) {

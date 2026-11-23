@@ -64,6 +64,10 @@ public sealed partial class MainForm
     private int _dumpAfter = -1;
     private string _dumpPath;
     private int _updates;
+    private SciFiBarControl _barControl;
+    private bool _valueColumnWidened;
+    private int MeterRoom => _barControl.BarWidth + 6;
+    private readonly System.Collections.Generic.Dictionary<ToolStripItem, string> _classicMenuTexts = new();
 
     /// <summary>The theme belongs to a design, so the Windows light/dark switch must not replace it.</summary>
     private bool DesignOwnsTheme => _design != UiDesign.Classic;
@@ -79,6 +83,10 @@ public sealed partial class MainForm
         _skiaAvailable = SkiaWorks();
 
         BuildDesignMenu();
+
+        // segmented meters in front of the values (only visible in Sci-Fi)
+        _barControl = new SciFiBarControl { ParentColumn = value, LeftMargin = 3 };
+        treeView.NodeControls.Insert(treeView.NodeControls.IndexOf(nodeTextBoxValue), _barControl);
 
         nodeTextBoxText.DrawText += SciFiTree_DrawText;
         nodeTextBoxValue.DrawText += SciFiTree_DrawText;
@@ -182,7 +190,7 @@ public sealed partial class MainForm
         {
             _sciFiTreeFont ??= FontManager.CreateFont(9f);
             _sciFiMenuFont ??= FontManager.CreateFont(8.5f);
-            _sciFiLabelFont ??= FontManager.CreateFont(7f, FontStyle.Bold);
+            _sciFiLabelFont ??= FontManager.CreateFont(8f, FontStyle.Bold);
 
             treeView.Font = _sciFiTreeFont;
             treeView.RowHeight = Math.Max(_classicRowHeight, _sciFiTreeFont.Height + 8);
@@ -191,6 +199,20 @@ public sealed partial class MainForm
             splitContainer.Panel1.Padding = new Padding(10, 26, 10, 10);
             splitContainer.Panel2.Padding = new Padding(10, 26, 10, 10);
             themeMenuItem.Enabled = false;
+            SciFiBarControl.Active = true;
+            // narrower name column; the tree hands the freed width to the value column (room for the meter)
+            if (!_valueColumnWidened)
+            {
+                treeView.Columns[0].Width -= MeterRoom;
+                _valueColumnWidened = true;
+            }
+            SciFiIcons.Apply(_root, true);
+            foreach (ToolStripItem item in mainMenu.Items)
+            {
+                if (!_classicMenuTexts.ContainsKey(item))
+                    _classicMenuTexts[item] = item.Text;
+                item.Text = _classicMenuTexts[item].ToUpperInvariant();
+            }
 
             if (_hudHeader == null)
             {
@@ -224,6 +246,15 @@ public sealed partial class MainForm
             splitContainer.Panel1.Padding = _classicPanel1Padding;
             splitContainer.Panel2.Padding = _classicPanel2Padding;
             themeMenuItem.Enabled = true;
+            SciFiBarControl.Active = false;
+            if (_valueColumnWidened)
+            {
+                treeView.Columns[0].Width += MeterRoom;
+                _valueColumnWidened = false;
+            }
+            SciFiIcons.Apply(_root, false);
+            foreach (var pair in _classicMenuTexts)
+                pair.Key.Text = pair.Value;
             RestoreClassicTheme();
             ApplyThemeToWindows();
         }
@@ -373,6 +404,10 @@ public sealed partial class MainForm
         if (!needed)
             return;
 
+        // hardware can appear later (e.g. a USB device); give its icons the Sci-Fi look too
+        if (_design == UiDesign.SciFi)
+            SciFiIcons.Apply(_root, true);
+
         string ip = Server.ListenerIp;
         string web = "http://" + (ip == "+" || ip == "?" || string.IsNullOrEmpty(ip) ? "*" : ip) + ":" + Server.ListenerPort;
         DashboardModel model = _metrics.Update(_computer.Hardware, _root.Text, _unitManager.TemperatureUnit == TemperatureUnit.Fahrenheit,
@@ -413,14 +448,31 @@ public sealed partial class MainForm
 
         if (node is SensorNode sensorNode)
         {
+            ISensor sensor = sensorNode.Sensor;
+            float? v = sensor.Value;
+            // a sensor that never reported anything (e.g. no driver access) is shown dimmed
+            bool dead = !v.HasValue || v.Value == 0 && (sensor.Max ?? 0) == 0;
             if (sender == nodeTextBoxValue)
             {
-                float? v = sensorNode.Sensor.Value;
-                bool hot = sensorNode.Sensor.SensorType == SensorType.Temperature && v >= 85 ||
-                           sensorNode.Sensor.SensorType == SensorType.Load && v >= 95;
-                e.TextColor = hot ? SciFiColors.Alarm : SciFiColors.Data;
+                bool hot = sensor.SensorType == SensorType.Temperature && v >= 85 || SciFiBarControl.IsPercent(sensor.SensorType) && v >= 95;
+                bool warm = sensor.SensorType == SensorType.Temperature && v >= 75 || SciFiBarControl.IsPercent(sensor.SensorType) && v >= 80;
+                if (dead)
+                    e.TextColor = SciFiColors.Muted;
+                else if (hot)
+                {
+                    e.TextColor = SciFiColors.Alarm;
+                    e.Text = "▲ " + e.Text;
+                }
+                else if (warm)
+                    e.TextColor = SciFiColors.Cool;
+                else
+                    e.TextColor = ValueColor(sensor.SensorType);
             }
             else if (sender == nodeTextBoxMin || sender == nodeTextBoxMax)
+            {
+                e.TextColor = dead ? SciFiColors.Muted : SciFiColors.Dim;
+            }
+            else if (sender == nodeTextBoxText && dead)
             {
                 e.TextColor = SciFiColors.Dim;
             }
@@ -428,11 +480,36 @@ public sealed partial class MainForm
         else if (node is HardwareNode && sender == nodeTextBoxText)
         {
             e.TextColor = SciFiColors.Accent;
+            e.Text = e.Text.ToUpperInvariant();
         }
         else if (node is TypeNode && sender == nodeTextBoxText)
         {
             e.TextColor = SciFiColors.Dim;
+            e.Text = e.Text.ToUpperInvariant() + "  //  " + node.Nodes.Count(n => n.IsVisible).ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
+    }
+
+    // The value column is wider in Sci-Fi (room for the meter); the settings keep the Classic width.
+    private int ColumnWidthForSave(Aga.Controls.Tree.TreeColumn column)
+    {
+        if (_valueColumnWidened && column == treeView.Columns[0])
+            return column.Width + MeterRoom;
+        if (_valueColumnWidened && column == treeView.Columns[1])
+            return Math.Max(20, column.Width - MeterRoom);
+        return column.Width;
+    }
+
+    // Each kind of value gets its own color, so the grid reads like an instrument panel.
+    private static Color ValueColor(SensorType type)
+    {
+        return type switch
+        {
+            SensorType.Temperature => SciFiColors.Data,
+            SensorType.Load or SensorType.Control or SensorType.Level or SensorType.Humidity => SciFiColors.Accent,
+            SensorType.Power or SensorType.Voltage or SensorType.Current or SensorType.Energy => Color.FromArgb(255, 240, 200, 120),
+            SensorType.Fan or SensorType.Flow => Color.FromArgb(255, 122, 240, 168),
+            _ => SciFiColors.Text
+        };
     }
 
     private void SciFiPanel_Paint(object sender, PaintEventArgs e)

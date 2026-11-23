@@ -988,7 +988,7 @@ public sealed partial class MainForm : Form
         _plotPanel.SetCurrentSettings();
 
         foreach (TreeColumn column in treeView.Columns)
-            _settings.SetValue("treeView.Columns." + column.Header + ".Width", column.Width);
+            _settings.SetValue("treeView.Columns." + column.Header + ".Width", ColumnWidthForSave(column)); // K26K: Classic width
 
         _settings.SetValue("listenerIp", Server.ListenerIp);
         _settings.SetValue("listenerPort", Server.ListenerPort);

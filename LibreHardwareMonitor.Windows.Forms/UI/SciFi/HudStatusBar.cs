@@ -30,7 +30,7 @@ public sealed class HudStatusBar : SkiaView
     public HudStatusBar()
     {
         Dock = DockStyle.Bottom;
-        Height = (int)(26 * UiScale);
+        Height = (int)(28 * UiScale);
     }
 
     public DashboardModel Model
@@ -46,7 +46,7 @@ public sealed class HudStatusBar : SkiaView
     protected override void OnDpiChangedAfterParent(EventArgs e)
     {
         base.OnDpiChangedAfterParent(e);
-        Height = (int)(26 * UiScale);
+        Height = (int)(28 * UiScale);
     }
 
     protected override void Render(SKCanvas c, int width, int height, float k) => Draw(c, width, height, k, _model);
@@ -73,12 +73,12 @@ public sealed class HudStatusBar : SkiaView
             using (SKPaint dot = Fui.Fill(item.Label == "WEB" ? item.Color : HudHeader.Accent.WithAlpha(0.6f)))
                 c.DrawRect(new SKRect(x, y - 5 * k, x + 3 * k, y - 2 * k), dot);
             x += 8 * k;
-            x += Fui.Text(c, item.Label, x, y, 8 * k, HudHeader.Dim, "Bold", spacing: 1.4f * k) + 7 * k;
-            x += Fui.Text(c, item.Value, x, y, 9 * k, item.Color, "Medium", spacing: 0.4f * k) + 20 * k;
+            x += Fui.Text(c, item.Label, x, y, 9.5f * k, HudHeader.Dim, "Bold", spacing: 0.8f * k) + 7 * k;
+            x += Fui.Text(c, item.Value, x, y, 10.5f * k, item.Color, "Medium") + 22 * k;
             if (x > width - 180 * k)
                 break;
         }
 
-        Fui.Text(c, "K26K // " + (string.IsNullOrEmpty(m.Machine) ? "LOCAL" : m.Machine.ToUpperInvariant()), width - 16 * k, y, 8.5f * k, HudHeader.Dim, "Medium", SKTextAlign.Right, 1.4f * k);
+        Fui.Text(c, "K26K // " + (string.IsNullOrEmpty(m.Machine) ? "LOCAL" : m.Machine.ToUpperInvariant()), width - 16 * k, y, 10 * k, HudHeader.Dim, "Medium", SKTextAlign.Right, 0.8f * k);
     }
 }

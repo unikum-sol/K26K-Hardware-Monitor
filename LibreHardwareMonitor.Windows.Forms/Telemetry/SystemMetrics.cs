@@ -129,7 +129,7 @@ public sealed class SystemMetrics
             if (!double.IsNaN(temp))
             {
                 diskTemp = Max(diskTemp, temp);
-                thermal.Add((disk.Name, temp, Limit(t, 75)));
+                thermal.Add(("Drive " + disk.Name, temp, Limit(t, 75)));
             }
         }
         m.DiskCount = drives;
@@ -197,6 +197,12 @@ public sealed class SystemMetrics
         double weighted = 0.30 * cpuL + 0.25 * gpuL + 0.25 * thermL + 0.10 * memL + 0.10 * fanL;
         double worst = Math.Max(cpuL, Math.Max(gpuL, thermL));
         m.Stress = Clamp(0.5 * worst + 0.5 * weighted, 0, 100);
+        m.StressLoad = Math.Max(cpuL, gpuL);
+        m.StressHeat = thermL;
+        m.StressMemory = memL;
+        m.StressFans = fanL;
+        m.Thermals = thermal.OrderByDescending(t => (t.Temp - 30) / Math.Max(1, t.Limit - 30)).Take(6)
+                            .Select(t => new ThermalEntry { Name = t.Name, Temp = t.Temp, Limit = t.Limit }).ToList();
         m.State = m.ThermalRatio >= 0.85 ? "THERMAL" : m.Stress >= 60 ? "LOAD" : "NOMINAL";
 
         // ---------- History ----------
@@ -213,7 +219,7 @@ public sealed class SystemMetrics
         if (memory != null)
             m.Tiles.Add(new HardwareTile { Kind = "ram", Label = "RAM", Name = "Memory", Load = m.MemoryLoad, Detail = double.IsNaN(m.MemoryUsedGb) ? "" : m.MemoryUsedGb.ToString("0.0", CultureInfo.InvariantCulture) + " / " + m.MemoryTotalGb.ToString("0", CultureInfo.InvariantCulture) + " GB" });
         if (board.Length > 0)
-            m.Tiles.Add(new HardwareTile { Kind = "board", Label = "BOARD", Name = board[0].Name, Load = m.FanEffort, Temp = boardTemp, TempLimit = 80, Detail = double.IsNaN(m.FanAvgRpm) ? "" : m.FanAvgRpm.ToString("0", CultureInfo.InvariantCulture) + " RPM" });
+            m.Tiles.Add(new HardwareTile { Kind = "fans", Label = "FANS", Name = m.FanCount + " fans", Load = m.FanEffort, Temp = boardTemp, TempLimit = 80, Detail = double.IsNaN(m.FanAvgRpm) ? "" : m.FanAvgRpm.ToString("0", CultureInfo.InvariantCulture) + " RPM" });
         if (drives > 0)
             m.Tiles.Add(new HardwareTile { Kind = "disk", Label = "DISK", Name = drives + " drives", Load = m.DiskActivity, Temp = m.DiskMaxTemp, TempLimit = 75, Detail = Rate(m.DiskRead + m.DiskWrite) });
         if (all.Any(h => h.HardwareType == HardwareType.Network))

@@ -108,7 +108,12 @@ public class PlotPanel : UserControl
             axis.TitleColor = Theme.Current.PlotTextColor.ToOxyColor();
             axis.MinorTicklineColor = Theme.Current.PlotBorderColor.ToOxyColor();
             axis.TicklineColor = Theme.Current.PlotBorderColor.ToOxyColor();
+            // K26K: designs can show the axis titles in capitals
+            if (!string.IsNullOrEmpty(axis.Key))
+                axis.Title = Theme.Current.PlotUppercaseTitles ? axis.Key.ToUpperInvariant() : axis.Key;
         }
+        _model.TitleColor = Theme.Current.PlotTextColor.ToOxyColor();
+        _timeAxis.StringFormat = Theme.Current.PlotTimeFormat ?? "h:mm";
         foreach (LineAnnotation annotation in _model.Annotations.Select(x => x as LineAnnotation).Where(x => x != null))
         {
             annotation.Color = Theme.Current.PlotBorderColor.ToOxyColor();
@@ -434,6 +439,11 @@ public class PlotPanel : UserControl
             axis.IsAxisVisible = types.Contains(type);
         }
 
+        // K26K: a hint while nothing is plotted (only designs that define one)
+        _model.Title = sensors.Count == 0 ? Theme.Current.PlotEmptyHint : null;
+        _model.TitleFontSize = 12;
+        _model.TitleFontWeight = OxyPlot.FontWeights.Normal;
+
         UpdateAxesInteraction();
         UpdateAxesPosition();
         InvalidatePlot();
@@ -479,6 +489,13 @@ public class PlotPanel : UserControl
                 double delta = axis.IsAxisVisible ? 1.0 / count : 0;
                 start += delta;
                 axis.EndPosition = start;
+                // K26K: designs can leave a gap between stacked axes so their labels do not touch
+                double gap = Theme.Current.PlotStackGap;
+                if (axis.IsAxisVisible && gap > 0 && delta > gap * 2)
+                {
+                    axis.StartPosition += gap / 2;
+                    axis.EndPosition -= gap / 2;
+                }
                 axis.PositionTier = 0;
                 axis.MajorGridlineStyle = LineStyle.Solid;
                 axis.MinorGridlineStyle = LineStyle.Solid;

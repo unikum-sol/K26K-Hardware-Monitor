@@ -30,7 +30,7 @@ public sealed class HudHeader : SkiaView
     public static readonly SKColor Bg = Fui.Hex("#050810");
     public static readonly SKColor Panel = Fui.Hex("#0A1218");
     public static readonly SKColor Text = Fui.Hex("#D8E8F0");
-    public static readonly SKColor Dim = Fui.Hex("#6A8292");
+    public static readonly SKColor Dim = Fui.Hex("#8CA3B3");
     public static readonly SKColor Accent = Fui.Hex("#00E0E8");
     public static readonly SKColor Data = Fui.Hex("#F0E040");
     public static readonly SKColor Cool = Fui.Hex("#F0A030");
@@ -134,8 +134,8 @@ public sealed class HudHeader : SkiaView
         }
         float tx = x0 + 28 * k;
         Fui.Text(c, "K26K", tx, midY + 1 * k, 21 * k, Text, "Bold", spacing: 3 * k);
-        Fui.Text(c, "HARDWARE MONITOR", tx, midY + 16 * k, 8 * k, Dim, "Medium", spacing: 1.6f * k);
-        float titleRight = tx + Math.Max(Fui.Measure("K26K", 21 * k, "Bold", 3 * k), Fui.Measure("HARDWARE MONITOR", 8 * k, "Medium", 1.6f * k)) + 26 * k;
+        Fui.Text(c, "HARDWARE MONITOR", tx, midY + 16 * k, 9 * k, Dim, "Medium", spacing: 1.2f * k);
+        float titleRight = tx + Math.Max(Fui.Measure("K26K", 21 * k, "Bold", 3 * k), Fui.Measure("HARDWARE MONITOR", 9 * k, "Medium", 1.2f * k)) + 26 * k;
 
         // ---------- right block: state and fancy button ----------
         float bw = 112 * k, bh = 30 * k;
@@ -145,18 +145,18 @@ public sealed class HudHeader : SkiaView
         using (SKPaint border = Fui.Stroke(Accent, 1 * k))
             c.DrawRect(button, border);
         Fui.Brackets(c, SKRect.Inflate(button, 3 * k, 3 * k), 5 * k, Accent.WithAlpha(0.7f), 1 * k);
-        Fui.Text(c, "FANCY  ▸", button.MidX, button.MidY + 4 * k, 10.5f * k, hover ? Bg : Accent, "Bold", SKTextAlign.Center, 1.8f * k);
+        Fui.Text(c, "FANCY  ▸", button.MidX, button.MidY + 4 * k, 11.5f * k, hover ? Bg : Accent, "Bold", SKTextAlign.Center, 1.4f * k);
 
         SKColor stateColor = m.State == "THERMAL" ? Alarm : m.State == "LOAD" ? Cool : Accent;
         string stateText = m.State == "THERMAL" ? "THERMAL ALERT" : m.State == "LOAD" ? "HIGH LOAD" : "SYSTEM NOMINAL";
-        float sw = Fui.Measure(stateText, 9.5f * k, "Bold", 1.6f * k) + 30 * k;
+        float sw = Fui.Measure(stateText, 10.5f * k, "Bold", 1.2f * k) + 30 * k;
         var state = new SKRect(button.Left - 16 * k - sw, midY - 14 * k, button.Left - 16 * k, midY + 2 * k);
         using (SKPaint p = Fui.Stroke(stateColor.WithAlpha(0.8f), 1 * k))
             c.DrawRect(state, p);
         using (SKPaint dot = Fui.Fill(stateColor))
             c.DrawCircle(state.Left + 10 * k, state.MidY, 3 * k, dot);
-        Fui.Text(c, stateText, state.Left + 20 * k, state.MidY + 3.5f * k, 9.5f * k, stateColor, "Bold", spacing: 1.6f * k);
-        Fui.Text(c, m.Date + "  " + m.Clock, state.Right, midY + 17 * k, 9 * k, Dim, "Medium", SKTextAlign.Right, 1.2f * k);
+        Fui.Text(c, stateText, state.Left + 20 * k, state.MidY + 4f * k, 10.5f * k, stateColor, "Bold", spacing: 1.2f * k);
+        Fui.Text(c, m.Date + "  " + m.Clock, state.Right, midY + 18 * k, 10 * k, Dim, "Medium", SKTextAlign.Right, 0.6f * k);
 
         // ---------- center ruler with live values ----------
         float left = titleRight + 8 * k, right = state.Left - 22 * k;
@@ -186,10 +186,10 @@ public sealed class HudHeader : SkiaView
         {
             var cell = cells[i];
             float cx = left + i * cellW + 6 * k;
-            float valueSize = 15 * k;
-            Fui.Text(c, cell.Label, cx, 30 * k, 8 * k, Dim, "Bold", spacing: 1.5f * k);
+            float valueSize = 16 * k;
+            Fui.Text(c, cell.Label, cx, 29 * k, 10 * k, Dim, "Bold", spacing: 1.2f * k);
             float vw = Fui.Text(c, cell.Value, cx, 48 * k, valueSize, cell.Hot ? Alarm : Data, "Medium");
-            Fui.Text(c, cell.Sub, cx + vw + 6 * k, 48 * k, 9 * k, Dim, "Regular");
+            Fui.Text(c, cell.Sub, cx + vw + 6 * k, 48 * k, 10.5f * k, Dim, "Medium");
             if (!double.IsNaN(cell.Fraction))
                 Fui.Segments(c, new SKRect(cx, 54 * k, cx + Math.Min(cellW - 16 * k, 92 * k), 56.5f * k), cell.Fraction, 12,
                              cell.Hot ? Alarm : Accent, Rule, 1.5f * k);
