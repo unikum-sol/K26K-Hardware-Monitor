@@ -102,6 +102,7 @@ public sealed partial class MainForm
         _skiaAvailable = SkiaWorks();
 
         BuildDesignMenu();
+        InitializeWindowFrame();
 
         // segmented meters in front of the values (only visible in Sci-Fi)
         _barControl = new SciFiBarControl { ParentColumn = value, LeftMargin = 3 };
@@ -259,6 +260,8 @@ public sealed partial class MainForm
             SciFiIcons.Apply(_root, true);
             foreach (ToolStripItem item in mainMenu.Items)
             {
+                if (item is CaptionButtonItem)
+                    continue;
                 if (!_classicMenuTexts.ContainsKey(item))
                     _classicMenuTexts[item] = item.Text;
                 item.Text = _classicMenuTexts[item].ToUpperInvariant();
@@ -269,6 +272,7 @@ public sealed partial class MainForm
                 _hudHeader = new HudHeader();
                 _hudHeader.FancyRequested += delegate { EnterFancy(); };
                 _hudStatus = new HudStatusBar();
+                AttachFrameHitTests(_hudHeader, _hudStatus);
             }
 
             if (!Controls.Contains(_hudHeader))
@@ -279,6 +283,7 @@ public sealed partial class MainForm
             ArrangeDocking();
             Theme.Current = new SciFiTheme();
             ApplyThemeToWindows();
+            SetCustomFrame(true);
             UpdateDashboard();
         }
         else
@@ -307,6 +312,7 @@ public sealed partial class MainForm
                 pair.Key.Text = pair.Value;
             RestoreClassicTheme();
             ApplyThemeToWindows();
+            SetCustomFrame(false);
         }
         ResumeLayout(true);
 
@@ -372,6 +378,7 @@ public sealed partial class MainForm
         {
             _fancy = new FancyDashboard();
             _fancy.ExitRequested += delegate { ExitFancy(); };
+            AttachFrameHitTests(_fancy);
         }
         _fancy.ReducedMotion = _reducedMotionItem.Checked;
         _fancy.Glow = _fancyGlowItem.Checked;
@@ -396,6 +403,7 @@ public sealed partial class MainForm
             WindowState = FormWindowState.Normal;
             WindowState = FormWindowState.Maximized;
         }
+        UpdateCaptionState();
 
         UpdateDashboard();
         _fancy.Restart();
@@ -417,6 +425,7 @@ public sealed partial class MainForm
             FormBorderStyle = _savedBorder;
             WindowState = _savedState;
         }
+        UpdateCaptionState();
 
         SuspendLayout();
         _fancy.Visible = false;

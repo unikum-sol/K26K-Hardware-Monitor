@@ -39,6 +39,20 @@ public sealed class FancyOptions
     /// <summary>Seconds since the dashboard was opened (drives the boot sequence).</summary>
     public double SinceOpen { get; set; } = 10;
     public bool ExitHover { get; set; }
+
+    /// <summary>Own window buttons in the top strip (the window has no Windows title bar).</summary>
+    public bool CaptionButtons { get; set; } = true;
+    /// <summary>False in fullscreen: only minimize and close.</summary>
+    public bool CaptionMaximize { get; set; } = true;
+    public bool Maximized { get; set; }
+    public bool WindowActive { get; set; } = true;
+    /// <summary>Window button under the mouse, or null.</summary>
+    public WindowButton? CaptionHover { get; set; }
+    public bool CaptionPressed { get; set; }
+
+    /// <summary>Output of the last full frame: hit areas of the window buttons and the height of the top strip.</summary>
+    public (WindowButton Kind, SKRect Rect)[] CaptionRects { get; set; } = Array.Empty<(WindowButton, SKRect)>();
+    public float TopStripHeight { get; set; }
     /// <summary>Soft glow around lines, nodes and text; off = calm, flat look for long viewing.</summary>
     public bool Glow { get; set; } = true;
 }
@@ -61,6 +75,16 @@ public static class FancyRenderer
     public static readonly SKColor Track = Fui.Hex("#2A4A3C");
     /// <summary>Track behind bars and rings that carry information (at least 3:1 against the panel).</summary>
     public static readonly SKColor TrackStrong = Fui.Hex("#4A7A64");
+
+    private static readonly CaptionPalette CaptionColors = new()
+    {
+        Glyph = Accent,
+        GlyphInactive = Fui.Hex("#5C8A78"),
+        Accent = Accent,
+        Alarm = Alarm,
+        Background = Bg,
+        Rule = Rule
+    };
 
     private const double BootSeconds = 2.6;
     private static readonly CultureInfo Inv = CultureInfo.CurrentCulture;
@@ -130,7 +154,7 @@ public static class FancyRenderer
         DrawRightColumn(c, rightCol, u, m);
         c.RestoreToCount(layer);
 
-        DrawTopStrip(c, width, top, u, m);
+        DrawTopStrip(c, width, top, u, m, o);
         SKRect exit = DrawBottomStrip(c, width, height, bottom, u, m, o);
 
         if (boot < 1)
@@ -941,12 +965,40 @@ public static class FancyRenderer
 
     // ------------------------------------------------------------------ strips
 
-    private static void DrawTopStrip(SKCanvas c, int w, float h, float u, DashboardModel m)
+    private static void DrawTopStrip(SKCanvas c, int w, float h, float u, DashboardModel m, FancyOptions o)
     {
         using (SKPaint back = Fui.Fill(SKColors.Black.WithAlpha(0.55f)))
             c.DrawRect(0, 0, w, h, back);
         using (SKPaint rule = Fui.Stroke(Rule, u))
             c.DrawLine(0, h, w, h, rule);
+
+        // window buttons at the right end, as tall as the strip; the clock moves left of them
+        o.TopStripHeight = h;
+        float right = w;
+        if (o.CaptionButtons)
+        {
+            float bw = Math.Max(CaptionChrome.ButtonWidth, 44 * u);
+            var kinds = o.CaptionMaximize
+                ? new[] { WindowButton.Close, WindowButton.Maximize, WindowButton.Minimize }
+                : new[] { WindowButton.Close, WindowButton.Minimize };
+            var rects = new (WindowButton, SKRect)[kinds.Length];
+            for (int i = 0; i < kinds.Length; i++)
+            {
+                var r = new SKRect(right - bw, 0, right, h);
+                bool hot = o.CaptionHover == kinds[i];
+                CaptionChrome.Draw(c, r, kinds[i], o.Maximized, hot, hot && o.CaptionPressed, o.WindowActive, CaptionColors, Math.Max(1, u));
+                rects[i] = (kinds[i], r);
+                right -= bw;
+            }
+            o.CaptionRects = rects;
+            using (SKPaint sep = Fui.Stroke(Rule, u))
+                c.DrawLine(right, h * 0.25f, right, h * 0.75f, sep);
+            right -= 6 * u;
+        }
+        else
+        {
+            o.CaptionRects = Array.Empty<(WindowButton, SKRect)>();
+        }
 
         float y = h / 2 + 5 * u;
         float x = 18 * u;
@@ -958,9 +1010,9 @@ public static class FancyRenderer
             x += Fui.Text(c, value, x, y, Small(u), Text, "Medium") + 24 * u;
         }
 
-        Fui.Text(c, m.Clock, w - 18 * u, y + 1 * u, Math.Max(16, 16 * u), Data, "Bold", SKTextAlign.Right, 0.6f * u, 3 * u);
+        Fui.Text(c, m.Clock, right - 18 * u, y + 1 * u, Math.Max(16, 16 * u), Data, "Bold", SKTextAlign.Right, 0.6f * u, 3 * u);
         float cw = Fui.Measure(m.Clock, Math.Max(16, 16 * u), "Bold", 0.6f * u);
-        Fui.Text(c, m.Date, w - 30 * u - cw, y, Small(u), Dim, "Medium", SKTextAlign.Right);
+        Fui.Text(c, m.Date, right - 30 * u - cw, y, Small(u), Dim, "Medium", SKTextAlign.Right);
     }
 
     private static SKRect DrawBottomStrip(SKCanvas c, int w, int h, float top, float u, DashboardModel m, FancyOptions o)

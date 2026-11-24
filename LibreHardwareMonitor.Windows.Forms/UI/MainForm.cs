@@ -1266,6 +1266,10 @@ public sealed partial class MainForm : Form
         const int SC_MINIMIZE = 0xF020;
         const int SC_CLOSE = 0xF060;
 
+        // K26K: Sci-Fi and Fancy draw their own title bar (MainForm.WindowFrame.cs)
+        if (HandleWindowFrameMessage(ref m))
+            return;
+
         if (_minimizeToTray.Value && m.Msg == WM_SYSCOMMAND && m.WParam.ToInt64() == SC_MINIMIZE)
         {
             SysTrayHideShow();

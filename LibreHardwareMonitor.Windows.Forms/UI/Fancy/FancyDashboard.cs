@@ -43,6 +43,9 @@ public sealed class FancyDashboard : SkiaView
 
     public event EventHandler ExitRequested;
 
+    /// <summary>A window button in the top strip was clicked.</summary>
+    public event EventHandler<WindowButton> CaptionCommand;
+
     public FancyDashboard()
     {
         Dock = DockStyle.Fill;
@@ -94,6 +97,42 @@ public sealed class FancyDashboard : SkiaView
         }
     }
 
+    /// <summary>Shows the window buttons in the top strip (fullscreen: without maximize).</summary>
+    public void SetCaption(bool show, bool maximize, bool maximized, bool active)
+    {
+        if (_options.CaptionButtons == show && _options.CaptionMaximize == maximize && _options.Maximized == maximized && _options.WindowActive == active)
+            return;
+        _options.CaptionButtons = show;
+        _options.CaptionMaximize = maximize;
+        _options.Maximized = maximized;
+        _options.WindowActive = active;
+        _cacheDirty = true;
+        Invalidate();
+    }
+
+    /// <summary>True on the top strip outside the window buttons: that part moves the window like a title bar.</summary>
+    public bool IsCaptionArea(System.Drawing.Point p) => p.Y < _options.TopStripHeight && CaptionAt(p) == null;
+
+    private WindowButton? CaptionAt(System.Drawing.Point p)
+    {
+        foreach (var (kind, rect) in _options.CaptionRects)
+        {
+            if (rect.Contains(p.X, p.Y))
+                return kind;
+        }
+        return null;
+    }
+
+    private void SetCaptionHover(WindowButton? hover, bool pressed)
+    {
+        if (hover == _options.CaptionHover && pressed == _options.CaptionPressed)
+            return;
+        _options.CaptionHover = hover;
+        _options.CaptionPressed = pressed;
+        _cacheDirty = true;
+        Invalidate(System.Drawing.Rectangle.FromLTRB(0, 0, ClientSize.Width, (int)Math.Ceiling(_options.TopStripHeight) + 1));
+    }
+
     /// <summary>Restarts the boot sequence; call when the dashboard is shown.</summary>
     public void Restart()
     {
@@ -130,6 +169,39 @@ public sealed class FancyDashboard : SkiaView
             Cursor = hover ? Cursors.Hand : Cursors.Default;
             _cacheDirty = true;
             Invalidate();
+        }
+        SetCaptionHover(CaptionAt(e.Location), _options.CaptionPressed && e.Button == MouseButtons.Left);
+    }
+
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        base.OnMouseLeave(e);
+        SetCaptionHover(null, false);
+        if (_options.ExitHover)
+        {
+            _options.ExitHover = false;
+            _cacheDirty = true;
+            Invalidate();
+        }
+    }
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        if (e.Button == MouseButtons.Left)
+            SetCaptionHover(CaptionAt(e.Location), CaptionAt(e.Location) != null);
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        base.OnMouseUp(e);
+        WindowButton? at = CaptionAt(e.Location);
+        bool clicked = e.Button == MouseButtons.Left && _options.CaptionPressed && at != null && at == _options.CaptionHover;
+        SetCaptionHover(at, false);
+        if (clicked)
+        {
+            SetCaptionHover(null, false);
+            CaptionCommand?.Invoke(this, at.Value);
         }
     }
 

@@ -43,6 +43,9 @@ public sealed class HudHeader : SkiaView
 
     public event EventHandler FancyRequested;
 
+    /// <summary>True on the FANCY button; the rest of the header moves the window like a title bar.</summary>
+    public bool IsOnButton(System.Drawing.Point p) => _button.Contains(p.X, p.Y);
+
     public HudHeader()
     {
         Dock = DockStyle.Top;
