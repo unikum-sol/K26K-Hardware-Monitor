@@ -53,8 +53,32 @@ public sealed class FancyOptions
     /// <summary>Output of the last full frame: hit areas of the window buttons and the height of the top strip.</summary>
     public (WindowButton Kind, SKRect Rect)[] CaptionRects { get; set; } = Array.Empty<(WindowButton, SKRect)>();
     public float TopStripHeight { get; set; }
+
+    /// <summary>The model before the last update: the dashboard glides from it to the new values (null = no transition).</summary>
+    public DashboardModel Previous { get; set; }
+    /// <summary>Seconds since the current model arrived.</summary>
+    public double SinceUpdate { get; set; } = 10;
+    /// <summary>Measured time between two updates in seconds; the charts scroll by one step per period.</summary>
+    public double ScrollPeriod { get; set; } = 1;
+    /// <summary>Output of the last frame: the parts that change during the transition and when (seconds since the update).</summary>
+    public List<FancyRegion> Regions { get; } = new();
     /// <summary>Soft glow around lines, nodes and text; off = calm, flat look for long viewing.</summary>
     public bool Glow { get; set; } = true;
+}
+
+/// <summary>A part of the dashboard that is animated between <see cref="Start"/> and <see cref="End"/> (seconds since the update).</summary>
+public readonly struct FancyRegion
+{
+    public FancyRegion(SKRect rect, double start, double end)
+    {
+        Rect = rect;
+        Start = start;
+        End = end;
+    }
+
+    public SKRect Rect { get; }
+    public double Start { get; }
+    public double End { get; }
 }
 
 /// <summary>
@@ -87,6 +111,72 @@ public static class FancyRenderer
     };
 
     private const double BootSeconds = 2.6;
+
+    // When each part starts to glide to the new values (seconds after the update, at a 1 s interval):
+    // the core first, then the orbit and both columns from top to bottom, so the update ripples
+    // through the dashboard instead of changing everything in the same frame.
+    private const double NodeDelay = 0.05, NodeStep = 0.05;
+    private const double TileDelay = 0.10, TileStep = 0.05;
+    private const double CoreCellDelay = 0.20, CoreCellStep = 0.012;
+    private const double ThermalDelay = 0.30, ThermalStep = 0.05;
+    private const double TelemetryDelay = 0.12, EnergyDelay = 0.20, CompositionDelay = 0.28, HeadroomDelay = 0.36;
+
+    /// <summary>Old and new model of one frame and the progress of every part.</summary>
+    private sealed class Tween
+    {
+        private readonly FancyOptions _o;
+        private readonly Dictionary<(double, double), DashboardModel> _models = new();
+
+        public Tween(FancyOptions o, DashboardModel next)
+        {
+            _o = o;
+            Next = next;
+            Prev = o.ReducedMotion ? null : o.Previous;
+            // shorter update intervals get shorter transitions, so they always end before the next update
+            K = Math.Max(0.25, Math.Min(1, next.UpdateIntervalMs / 1000.0));
+        }
+
+        public DashboardModel Next { get; }
+        public DashboardModel Prev { get; }
+        private double K { get; }
+        private bool On => Prev != null;
+        private bool Record => On && _o.Layer != FancyLayer.Motion;
+
+        /// <summary>Eased progress 0..1 of a part that starts after <paramref name="delay"/> seconds.</summary>
+        public double P(double delay) => On ? FancyTween.Ease((_o.SinceUpdate - delay * K) / (FancyTween.Duration * K)) : 1;
+
+        /// <summary>The model as a part shows it; list items start <paramref name="step"/> seconds apart.</summary>
+        public DashboardModel Model(double delay, double step = 0)
+        {
+            if (!On)
+                return Next;
+            if (!_models.TryGetValue((delay, step), out DashboardModel m))
+            {
+                m = FancyTween.Blend(Prev, Next, i => P(delay + Math.Max(0, i) * step));
+                _models[(delay, step)] = m;
+            }
+            return m;
+        }
+
+        /// <summary>History position for the charts: 0 right after the update, 1 when the next one is due.</summary>
+        public double Scroll => On ? Math.Min(1, _o.SinceUpdate / Math.Max(0.1, _o.ScrollPeriod)) : 1;
+
+        public double[] PrevHistory(Func<DashboardModel, double[]> pick) => On ? pick(Prev) : null;
+
+        public void Region(SKRect r, double delay, int items = 1, double step = 0)
+        {
+            if (Record)
+                _o.Regions.Add(new FancyRegion(r, delay * K, (delay + Math.Max(0, items - 1) * step + FancyTween.Duration) * K));
+        }
+
+        /// <summary>A chart that scrolls during the whole interval.</summary>
+        public void Scrolling(SKRect r)
+        {
+            if (Record)
+                _o.Regions.Add(new FancyRegion(r, 0, _o.ScrollPeriod + 0.1));
+        }
+    }
+
     private static readonly CultureInfo Inv = CultureInfo.CurrentCulture;
 
     // Type scale: sizes grow with the window, but never below the legible minimum (in pixels).
@@ -124,9 +214,11 @@ public static class FancyRenderer
         float ease = (float)(1 - Math.Pow(1 - boot, 3));
 
         bool still = o.Layer != FancyLayer.Motion;
+        var tw = new Tween(o, m);
+        if (still)
+            o.Regions.Clear();
         if (still)
         {
-            c.Clear(Bg);
             DrawBackground(c, width, height, u, o.Glow);
         }
 
@@ -143,15 +235,15 @@ public static class FancyRenderer
             c.SaveLayer(fade);
         }
 
-        DrawOrbital(c, center, u, m, t, o, ease);
+        DrawOrbital(c, center, u, tw, t, o, ease);
         if (!still)
         {
             c.RestoreToCount(layer);
             return SKRect.Empty;
         }
 
-        DrawLeftColumn(c, leftCol, u, m);
-        DrawRightColumn(c, rightCol, u, m);
+        DrawLeftColumn(c, leftCol, u, tw);
+        DrawRightColumn(c, rightCol, u, tw);
         c.RestoreToCount(layer);
 
         DrawTopStrip(c, width, top, u, m, o);
@@ -166,7 +258,26 @@ public static class FancyRenderer
 
     // ------------------------------------------------------------------ background
 
+    // Background and overlay are the same in every frame of one size, so they are drawn once into an image
+    // and only copied afterwards: the transitions redraw parts of the dashboard many times per second.
+    private static SKImage _background, _overlay;
+    private static (int W, int H, float U, bool Glow) _backgroundKey, _overlayKey;
+
     private static void DrawBackground(SKCanvas c, int w, int h, float u, bool glowOn)
+    {
+        if (_background == null || _backgroundKey != (w, h, u, glowOn))
+        {
+            _background?.Dispose();
+            using SKSurface surface = SKSurface.Create(new SKImageInfo(w, h, SKColorType.Bgra8888, SKAlphaType.Premul));
+            surface.Canvas.Clear(Bg);
+            PaintBackground(surface.Canvas, w, h, u, glowOn);
+            _background = surface.Snapshot();
+            _backgroundKey = (w, h, u, glowOn);
+        }
+        c.DrawImage(_background, 0, 0);
+    }
+
+    private static void PaintBackground(SKCanvas c, int w, int h, float u, bool glowOn)
     {
         using (SKPaint grid = Fui.Stroke(Accent.WithAlpha(0.03f)))
         {
@@ -191,6 +302,20 @@ public static class FancyRenderer
     // very light scanlines and a soft vignette; strong enough for the look, too weak to flicker
     private static void DrawScanlines(SKCanvas c, int w, int h, float u)
     {
+        if (_overlay == null || _overlayKey != (w, h, u, false))
+        {
+            _overlay?.Dispose();
+            using SKSurface surface = SKSurface.Create(new SKImageInfo(w, h, SKColorType.Bgra8888, SKAlphaType.Premul));
+            surface.Canvas.Clear(SKColors.Transparent);
+            PaintScanlines(surface.Canvas, w, h, u);
+            _overlay = surface.Snapshot();
+            _overlayKey = (w, h, u, false);
+        }
+        c.DrawImage(_overlay, 0, 0);
+    }
+
+    private static void PaintScanlines(SKCanvas c, int w, int h, float u)
+    {
         using SKPaint p = Fui.Stroke(SKColors.Black.WithAlpha(0.05f), 1);
         float step = Math.Max(3, 4 * u);
         for (float y = 0; y < h; y += step)
@@ -207,8 +332,11 @@ public static class FancyRenderer
 
     // ------------------------------------------------------------------ orbital core
 
-    private static void DrawOrbital(SKCanvas c, SKRect area, float u, DashboardModel m, double t, FancyOptions o, float ease)
+    private static void DrawOrbital(SKCanvas c, SKRect area, float u, Tween tw, double t, FancyOptions o, float ease)
     {
+        // the nodes glide one after another, the core first
+        DashboardModel m = tw.Model(NodeDelay, NodeStep);
+        DashboardModel core = tw.Model(0);
         var cp = new SKPoint(area.MidX, area.MidY + 4 * u);
         float maxR = Math.Min(area.Width / 2f - 150 * u, area.Height / 2f - 60 * u);
         maxR = Math.Max(120 * u, maxR);
@@ -249,6 +377,7 @@ public static class FancyRenderer
         // nodes
         List<HardwareTile> tiles = m.Tiles.Where(x => x.Kind != "power").ToList();
         int n = Math.Max(1, tiles.Count);
+        tw.Region(area, 0, m.Tiles.Count + 1, NodeStep);
         double total = Math.Max(1, m.TotalPower);
         var nodes = new List<(HardwareTile Tile, SKPoint P, float R, SKColor Color, double Angle)>();
         for (int i = 0; i < tiles.Count; i++)
@@ -325,7 +454,7 @@ public static class FancyRenderer
                     c.DrawRect(new SKRect(at.X - lw - 4 * u, at.Y - Small(u) - 1 * u, at.X + 4 * u, at.Y + 5 * u), plate);
                 Fui.Text(c, text, at.X, at.Y, Small(u), Dim, "Medium", SKTextAlign.Right, 0.6f * u);
             }
-            DrawCore(c, cp, coreR, u, m, t, o, ease);
+            DrawCore(c, cp, coreR, u, core, t, o, ease);
         }
 
         foreach (var node in nodes)
@@ -521,9 +650,11 @@ public static class FancyRenderer
 
     // ------------------------------------------------------------------ left column
 
-    private static void DrawLeftColumn(SKCanvas c, SKRect col, float u, DashboardModel m)
+    private static void DrawLeftColumn(SKCanvas c, SKRect col, float u, Tween tw)
     {
+        DashboardModel m = tw.Model(TileDelay, TileStep);
         float y = Header(c, "HARDWARE NODES", m.Tiles.Count.ToString("00", Inv), col.Left, col.Right, col.Top, u);
+        float sectionTop = y;
 
         float gap = 8 * u;
         float tileW = (col.Width - gap) / 2, tileH = Math.Max(78, 76 * u);
@@ -536,9 +667,12 @@ public static class FancyRenderer
             i++;
         }
         y += (float)Math.Ceiling(i / 2.0) * (tileH + gap) + 12 * u;
+        tw.Region(new SKRect(col.Left - 2 * u, sectionTop, col.Right + 2 * u, y), TileDelay, i, TileStep);
 
         // core matrix: one cell per CPU core with its load in %
+        m = tw.Model(CoreCellDelay, CoreCellStep);
         int cores = m.CoreLoads.Length;
+        sectionTop = y;
         y = Header(c, "CORE MATRIX // LOAD %", cores.ToString("00", Inv), col.Left, col.Right, y, u);
         if (cores > 0)
         {
@@ -573,6 +707,7 @@ public static class FancyRenderer
                 Fui.Text(c, (load >= 85 ? "▲" : "") + load.ToString("0", Inv), cx + cell - 4 * u, cy + cellH - 5 * u, Small(u), Text, "Bold", SKTextAlign.Right);
             }
             y += (float)Math.Ceiling(cores / (double)perRow) * (cellH + cellGap) + 12 * u;
+            tw.Region(new SKRect(col.Left - 2 * u, sectionTop, col.Right + 2 * u, y), CoreCellDelay, cores, CoreCellStep);
         }
         else
         {
@@ -581,8 +716,10 @@ public static class FancyRenderer
         }
 
         // thermals: every component against its own limit
+        m = tw.Model(ThermalDelay, ThermalStep);
         if (y < col.Bottom - 60 * u && m.Thermals.Count > 0)
         {
+            sectionTop = y;
             y = Header(c, "THERMALS // OF LIMIT", m.Thermals.Count.ToString("00", Inv), col.Left, col.Right, y, u);
             float rowH = Math.Max(26, 24 * u);
             foreach (ThermalEntry entry in m.Thermals)
@@ -596,6 +733,7 @@ public static class FancyRenderer
                 Fui.Bar(c, new SKRect(col.Left, y + Micro(u) + 5 * u, col.Right, y + Micro(u) + 8 * u), ratio, colr, TrackStrong);
                 y += rowH;
             }
+            tw.Region(new SKRect(col.Left - 2 * u, sectionTop, col.Right + 2 * u, y), ThermalDelay, m.Thermals.Count, ThermalStep);
         }
 
         // color legend for all heat colors, right below the thermals
@@ -614,10 +752,11 @@ public static class FancyRenderer
         float rest = col.Bottom - y;
         if (rest > 110 * u && m.CpuHistory.Length > 1)
         {
-            // the scale follows the data in three fixed steps (25, 50, 100 %), so idle curves do not stick
-            // to the floor and two views stay comparable
-            double peak = Math.Max(m.CpuHistory.Max(), m.GpuHistory.Length > 0 ? m.GpuHistory.Max() : 0);
-            double scale = peak * 1.15 <= 25 ? 25 : peak * 1.15 <= 50 ? 50 : 100;
+            m = tw.Next;
+            double scale = ActivityScale(m);
+            double[] prevCpu = tw.PrevHistory(x => x.CpuHistory), prevGpu = tw.PrevHistory(x => x.GpuHistory);
+            // a new scale step is reached by gliding, the curves stretch along
+            double shownScale = tw.Prev != null ? FancyTween.Lerp(ActivityScale(tw.Prev), scale, tw.P(0)) : scale;
             string span = Math.Max(1, m.CpuHistory.Length * m.UpdateIntervalMs / 60000).ToString(Inv);
             // in short columns the legend moves into the heading line, so the chart keeps its height
             bool compact = rest < 175 * u;
@@ -674,7 +813,7 @@ public static class FancyRenderer
                 c.DrawRect(box, back);
             if (compact)
             {
-                Fui.Text(c, scale.ToString("0", Inv) + "%", box.Left - 6 * u, box.Top + Micro(u), Micro(u), Dim, "Medium", SKTextAlign.Right);
+                Fui.Text(c, shownScale.ToString("0", Inv) + "%", box.Left - 6 * u, box.Top + Micro(u), Micro(u), Dim, "Medium", SKTextAlign.Right);
                 Fui.Text(c, "0", box.Left - 6 * u, box.Bottom, Micro(u), Dim, "Medium", SKTextAlign.Right);
             }
             using (SKPaint grid = Fui.Stroke(Rule, u))
@@ -683,8 +822,9 @@ public static class FancyRenderer
                     c.DrawLine(box.Left, box.Top + box.Height * g / 4, box.Right, box.Top + box.Height * g / 4, grid);
             }
             Fui.Brackets(c, box, 8 * u, Accent.WithAlpha(0.7f), u);
-            Spark(c, box, m.CpuHistory, scale, Accent, u, false);
-            Spark(c, box, m.GpuHistory, scale, Data, u, true);
+            tw.Scrolling(new SKRect(box.Left - 40 * u, box.Top - 2 * u, box.Right + 2 * u, box.Bottom + 2 * u));
+            Spark(c, box, FancyTween.Scroll(prevCpu, m.CpuHistory, tw.Scroll), shownScale, Accent, u, false);
+            Spark(c, box, FancyTween.Scroll(prevGpu, m.GpuHistory, tw.Scroll), shownScale, Data, u, true);
 
             // a young session has only a few samples; say so instead of leaving the box looking empty
             double seconds = m.CpuHistory.Length * m.UpdateIntervalMs / 1000.0;
@@ -701,15 +841,23 @@ public static class FancyRenderer
         }
     }
 
-    private static void Spark(SKCanvas c, SKRect r, double[] values, double scale, SKColor color, float u, bool dashed)
+    // the scale follows the data in three fixed steps (25, 50, 100 %), so idle curves do not stick
+    // to the floor and two views stay comparable
+    private static double ActivityScale(DashboardModel m)
     {
-        if (values.Length < 2)
+        double peak = Math.Max(m.CpuHistory.Length > 0 ? m.CpuHistory.Max() : 0, m.GpuHistory.Length > 0 ? m.GpuHistory.Max() : 0);
+        return peak * 1.15 <= 25 ? 25 : peak * 1.15 <= 50 ? 50 : 100;
+    }
+
+    private static void Spark(SKCanvas c, SKRect r, (double X, double V)[] points, double scale, SKColor color, float u, bool dashed)
+    {
+        if (points.Length < 2)
             return;
         using var path = new SKPath();
-        for (int i = 0; i < values.Length; i++)
+        for (int i = 0; i < points.Length; i++)
         {
-            float x = r.Left + r.Width * i / (values.Length - 1);
-            float y = r.Bottom - 3 * u - (float)(Math.Max(0, Math.Min(scale, values[i])) / scale) * (r.Height - 6 * u);
+            float x = r.Left + r.Width * (float)points[i].X;
+            float y = r.Bottom - 3 * u - (float)(Math.Max(0, Math.Min(scale, points[i].V)) / scale) * (r.Height - 6 * u);
             if (i == 0)
                 path.MoveTo(x, y);
             else
@@ -718,7 +866,11 @@ public static class FancyRenderer
         using SKPaint p = Fui.Stroke(color, 1.8f * u);
         if (dashed)
             p.PathEffect = SKPathEffect.CreateDash(new[] { 6 * u, 3 * u }, 0);
+        // the curve scrolls: the parts outside the box are cut off
+        int save = c.Save();
+        c.ClipRect(r);
         c.DrawPath(path, p);
+        c.RestoreToCount(save);
     }
 
     private static void DrawTile(SKCanvas c, SKRect r, HardwareTile tile, float u, DashboardModel m)
@@ -748,9 +900,11 @@ public static class FancyRenderer
 
     // ------------------------------------------------------------------ right column
 
-    private static void DrawRightColumn(SKCanvas c, SKRect col, float u, DashboardModel m)
+    private static void DrawRightColumn(SKCanvas c, SKRect col, float u, Tween tw)
     {
+        DashboardModel m = tw.Model(TelemetryDelay);
         float y = Header(c, "TELEMETRY", "", col.Left, col.Right, col.Top, u);
+        float sectionTop = y;
 
         string est = m.OtherPowerEstimated ? "≈ " : "";
         var rows = new List<(string Label, string Value, SKColor Color)>
@@ -779,8 +933,11 @@ public static class FancyRenderer
             Fui.Text(c, "n/a = NO SENSOR OR NEEDS ADMIN RIGHTS", col.Left, y, Micro(u), Dim, "Medium");
         }
         y += 12 * u;
+        tw.Region(new SKRect(col.Left - 2 * u, sectionTop, col.Right + 2 * u, y), TelemetryDelay);
 
         // energy distribution; the estimated rest is hatched, not solid
+        m = tw.Model(EnergyDelay);
+        sectionTop = y;
         y = Header(c, "ENERGY DISTRIBUTION", m.OtherPowerEstimated ? "REST ESTIMATED" : "MEASURED", col.Left, col.Right, y, u);
         double cpuP = Nz(m.CpuPower), gpuP = Nz(m.GpuPower), rest = Nz(m.OtherPower), sum = Math.Max(1, cpuP + gpuP + rest);
         var parts = new[] { ("CPU", cpuP, Accent, false), ("GPU", gpuP, Data, false), ("REST", rest, Cool, m.OtherPowerEstimated) };
@@ -819,8 +976,11 @@ public static class FancyRenderer
             Fui.Text(c, "REST ≈ BOARD + RAM + DRIVES + FANS", col.Left, y, Micro(u), Dim, "Medium");
         }
         y += 20 * u;
+        tw.Region(new SKRect(col.Left - 2 * u, sectionTop, col.Right + 2 * u, y), EnergyDelay);
 
         // stress composition: the four parts of the index
+        m = tw.Model(CompositionDelay);
+        sectionTop = y;
         y = Header(c, "STRESS COMPOSITION", m.Stress.ToString("0", Inv) + " / 100", col.Left, col.Right, y, u);
         var comp = new[]
         {
@@ -842,12 +1002,15 @@ public static class FancyRenderer
         y += Micro(u) + 4 * u;
         Fui.Text(c, "BUT AT LEAST " + (StressWeights.Floor * 100).ToString("0", Inv) + "% OF MAX(LOAD, HEAT)", col.Left, y + Micro(u) - 2 * u, Micro(u), Dim, "Medium");
         y += Micro(u) + 14 * u;
+        tw.Region(new SKRect(col.Left - 2 * u, sectionTop, col.Right + 2 * u, y), CompositionDelay);
 
         // thermal headroom ring: distance of the hottest component to its limit
         // a smaller ring in short columns, so the power scope below keeps a usable height
         float ringR = Math.Min(42 * u, (col.Bottom - y) * 0.17f);
+        m = tw.Model(HeadroomDelay);
         if (ringR > 22)
         {
+            sectionTop = y;
             y = Header(c, "THERMAL HEADROOM", string.IsNullOrEmpty(m.HottestName) ? "n/a" : Shorten(m.HottestName, 18).ToUpperInvariant(), col.Left, col.Right, y, u);
             var rc = new SKPoint(col.Left + ringR + 4 * u, y + ringR + 6 * u);
             // the ring shows the reserve that is left: full = plenty of room, empty = at the limit
@@ -873,7 +1036,9 @@ public static class FancyRenderer
             Fui.Text(c, "HOTTEST  " + (double.IsNaN(m.HottestTemp) ? "n/a" : Fui.Temp(m.HottestTemp, m.Fahrenheit)), sx, rc.Y + 8 * u, Small(u), Text, "Medium");
             Fui.Text(c, "RING = RESERVE LEFT " + (reserve * 100).ToString("0", Inv) + "%", sx, rc.Y + 26 * u, Micro(u), Dim, "Medium");
             y = rc.Y + ringR + 18 * u;
+            tw.Region(new SKRect(col.Left - 2 * u, sectionTop, col.Right + 2 * u, y), HeadroomDelay);
         }
+        m = tw.Next;
 
         // power oscilloscope with a scale
         float scopeH = Math.Min(170 * u, col.Bottom - y - 30 * u);
@@ -882,18 +1047,26 @@ public static class FancyRenderer
             string span = Math.Max(1, m.PowerHistory.Length * m.UpdateIntervalMs / 60000).ToString(Inv);
             string minMax = m.PowerHistory.Length > 1 ? "MIN " + m.PowerHistory.Min().ToString("0", Inv) + "  MAX " + m.PowerHistory.Max().ToString("0", Inv) + " W" : est + Fui.Watts(m.TotalPower);
             y = Header(c, "POWER // " + span + " MIN", minMax, col.Left, col.Right, y, u);
-            DrawScope(c, new SKRect(col.Left + 44 * u, y, col.Right, y + scopeH), m.PowerHistory, u, m.OtherPowerEstimated);
+            var scope = new SKRect(col.Left + 44 * u, y, col.Right, y + scopeH);
+            tw.Scrolling(new SKRect(col.Left - 2 * u, scope.Top - 10 * u, col.Right + 2 * u, scope.Bottom + 10 * u));
+            DrawScope(c, scope, tw.PrevHistory(x => x.PowerHistory), m.PowerHistory, tw.Scroll, tw.P(0), u);
         }
     }
 
-    private static void DrawScope(SKCanvas c, SKRect r, double[] values, float u, bool estimated)
+    private static void DrawScope(SKCanvas c, SKRect r, double[] previous, double[] values, double scroll, double ease, float u)
     {
         using (SKPaint back = Fui.Fill(Panel.WithAlpha(0.8f)))
             c.DrawRect(r, back);
         Fui.Brackets(c, r, 8 * u, Accent.WithAlpha(0.7f), u);
 
-        // the scale follows the data (with some margin), so the curve uses the full height
+        // the scale follows the data (with some margin), so the curve uses the full height;
+        // after an update it glides to the new range instead of jumping
         double lo = values.Length > 0 ? values.Min() : 0, hi = values.Length > 0 ? values.Max() : 100;
+        if (previous != null && previous.Length > 0 && values.Length > 0)
+        {
+            lo = FancyTween.Lerp(previous.Min(), lo, ease);
+            hi = FancyTween.Lerp(previous.Max(), hi, ease);
+        }
         double margin = Math.Max(5, (hi - lo) * 0.2);
         // at most four scale lines, fewer when the scope is short (at least 30 px between labels)
         int lines = Math.Max(3, Math.Min(4, (int)(r.Height / (24 * u))));
@@ -919,38 +1092,46 @@ public static class FancyRenderer
         if (values.Length < 2)
             return;
 
+        // the curve scrolls continuously; the newest value slides in from the right
+        (double X, double V)[] points = FancyTween.Scroll(previous, values, scroll);
         using var line = new SKPath();
         using var area = new SKPath();
-        float py(double v) => r.Bottom - (float)((v - min) / (max - min)) * r.Height;
-        for (int i = 0; i < values.Length; i++)
+        float py(double v) => r.Bottom - (float)((Math.Max(min, Math.Min(max, v)) - min) / (max - min)) * r.Height;
+        float px(double f) => r.Left + r.Width * (float)f;
+        for (int i = 0; i < points.Length; i++)
         {
-            float x = r.Left + r.Width * i / (values.Length - 1);
+            float x = px(points[i].X);
             if (i == 0)
             {
-                line.MoveTo(x, py(values[i]));
+                line.MoveTo(x, py(points[i].V));
                 area.MoveTo(x, r.Bottom);
             }
             else
             {
-                line.LineTo(x, py(values[i]));
+                line.LineTo(x, py(points[i].V));
             }
-            area.LineTo(x, py(values[i]));
+            area.LineTo(x, py(points[i].V));
         }
-        area.LineTo(r.Right, r.Bottom);
+        area.LineTo(px(points[points.Length - 1].X), r.Bottom);
         area.Close();
 
+        int save = c.Save();
+        c.ClipRect(r);
         using (var fill = new SKPaint { Shader = SKShader.CreateLinearGradient(new SKPoint(0, r.Top), new SKPoint(0, r.Bottom), new[] { Data.WithAlpha(0.22f), Data.WithAlpha(0f) }, null, SKShaderTileMode.Clamp) })
             c.DrawPath(area, fill);
         using (SKPaint p = Fui.Stroke(Data, 2 * u))
             c.DrawPath(line, p);
+        c.RestoreToCount(save);
 
-        // min and max markers (their values are in the header)
-        int iMax = Array.IndexOf(values, values.Max()), iMin = Array.IndexOf(values, values.Min());
-        foreach (int idx in new[] { iMax, iMin })
+        // min and max markers of the visible part (their values are in the header)
+        var visible = points.Where(q => q.X >= 0 && q.X <= 1).ToArray();
+        if (visible.Length == 0)
+            return;
+        double vMax = visible.Max(q => q.V), vMin = visible.Min(q => q.V);
+        foreach (var q in new[] { visible.First(q => q.V == vMax), visible.First(q => q.V == vMin) })
         {
-            float x = r.Left + r.Width * idx / (values.Length - 1), y = py(values[idx]);
             using (SKPaint ring = Fui.Stroke(Text, 1.4f * u))
-                c.DrawCircle(x, y, 3.5f * u, ring);
+                c.DrawCircle(px(q.X), py(q.V), 3.5f * u, ring);
         }
     }
 

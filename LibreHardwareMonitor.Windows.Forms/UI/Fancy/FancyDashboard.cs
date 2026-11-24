@@ -40,6 +40,13 @@ public sealed class FancyDashboard : SkiaView
     private bool _cacheDirty = true;
     private double _openedAt;
     private SKRect _exit;
+    private DashboardModel _previous;
+    private bool _hasModel;
+    private double _arrivedAt;
+    private double _period;
+
+    // a part gets a few more frames after its transition, so it surely ends on the exact new value
+    private const double SettleSeconds = 0.08;
 
     public event EventHandler ExitRequested;
 
@@ -49,7 +56,7 @@ public sealed class FancyDashboard : SkiaView
     public FancyDashboard()
     {
         Dock = DockStyle.Fill;
-        _timer.Interval = 40;
+        _timer.Interval = 30;
         _timer.Tick += (s, e) =>
         {
             // during the boot sequence everything changes; afterwards only the orbital view moves
@@ -58,8 +65,14 @@ public sealed class FancyDashboard : SkiaView
                 Invalidate();
                 return;
             }
-            SKRect area = FancyRenderer.MotionArea(ClientSize.Width, ClientSize.Height);
-            Invalidate(System.Drawing.Rectangle.FromLTRB((int)area.Left, (int)area.Top, (int)Math.Ceiling(area.Right), (int)Math.Ceiling(area.Bottom)));
+            Invalidate(ToRectangle(FancyRenderer.MotionArea(ClientSize.Width, ClientSize.Height)));
+            // the parts that are gliding to new values or scrolling right now
+            double since = _clock.Elapsed.TotalSeconds - _arrivedAt;
+            foreach (FancyRegion region in _options.Regions)
+            {
+                if (IsActive(region, since))
+                    Invalidate(ToRectangle(region.Rect));
+            }
         };
     }
 
@@ -91,11 +104,27 @@ public sealed class FancyDashboard : SkiaView
         get => _model;
         set
         {
-            _model = value ?? new DashboardModel();
+            // the sensors still update once per interval; the old model is kept, so the dashboard can glide
+            // from the old to the new values until the next update
+            double now = _clock.Elapsed.TotalSeconds;
+            DashboardModel next = value ?? new DashboardModel();
+            double interval = Math.Max(0.1, next.UpdateIntervalMs / 1000.0);
+            double gap = now - _arrivedAt;
+            // measured time between updates (it runs a little longer than the interval); the charts scroll in that time
+            _period = _hasModel && gap > interval * 0.5 && gap < interval * 2 ? (_period > 0 ? _period * 0.7 + gap * 0.3 : gap) : interval;
+            _previous = _hasModel ? _model : null;
+            _model = next;
+            _hasModel = true;
+            _arrivedAt = now;
             _cacheDirty = true;
             Invalidate();
         }
     }
+
+    private static bool IsActive(FancyRegion region, double since) => since >= region.Start && since <= region.End + SettleSeconds;
+
+    private static System.Drawing.Rectangle ToRectangle(SKRect r) =>
+        System.Drawing.Rectangle.FromLTRB((int)Math.Floor(r.Left), (int)Math.Floor(r.Top), (int)Math.Ceiling(r.Right), (int)Math.Ceiling(r.Bottom));
 
     /// <summary>Shows the window buttons in the top strip (fullscreen: without maximize).</summary>
     public void SetCaption(bool show, bool maximize, bool maximized, bool active)
@@ -216,6 +245,9 @@ public sealed class FancyDashboard : SkiaView
     {
         double now = _clock.Elapsed.TotalSeconds;
         _options.SinceOpen = now - _openedAt;
+        _options.Previous = _previous;
+        _options.SinceUpdate = now - _arrivedAt;
+        _options.ScrollPeriod = _period > 0 ? _period : 1;
 
         // the boot sequence changes everything, so it is drawn completely each frame
         if (!ReducedMotion && _options.SinceOpen < BootSeconds)
@@ -239,6 +271,23 @@ public sealed class FancyDashboard : SkiaView
             _options.Layer = FancyLayer.Static;
             _exit = FancyRenderer.Render(cacheCanvas, width, height, scale, _model, now, _options);
             _cacheDirty = false;
+        }
+        else if (!ReducedMotion)
+        {
+            // only the parts in transition are drawn again (clipped); the rest of the cached frame stays
+            using var clip = new SKPath();
+            foreach (FancyRegion region in _options.Regions)
+            {
+                if (IsActive(region, _options.SinceUpdate))
+                    clip.AddRect(region.Rect);
+            }
+            if (!clip.IsEmpty)
+            {
+                using var cacheCanvas = new SKCanvas(_cache);
+                cacheCanvas.ClipPath(clip);
+                _options.Layer = FancyLayer.Static;
+                _exit = FancyRenderer.Render(cacheCanvas, width, height, scale, _model, now, _options);
+            }
         }
 
         canvas.DrawBitmap(_cache, 0, 0);

@@ -15,6 +15,8 @@ The desktop app itself comes with two new designs: **Sci-Fi** and an animated **
   - **Fancy Mode** (**F11**, the FANCY button or the menu; **Esc** returns): an animated dashboard inside the main
     window with computed metrics: system stress (0 to 100, with its composition and weights), thermal headroom,
     energy distribution (estimates marked as such), session energy, core matrix, activity and power history.
+    New values glide in one after another instead of all changing in the same frame, and the charts scroll
+    continuously; the update interval from the options stays as it is.
     Options: **Reduced Motion** (follows the Windows animation setting), **Glow Effects**, **Fancy Mode in Fullscreen**.
   - Sci-Fi and Fancy have no Windows title bar: minimize, maximize and close are drawn in the design (Sci-Fi at the
     right of the menu row, Fancy in the top strip). The menu row, the header and the top strip move the window
