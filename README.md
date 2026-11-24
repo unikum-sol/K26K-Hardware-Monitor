@@ -3,8 +3,32 @@
 K26K Hardware Monitor is an extended version of [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor).
 It adds a **new web interface optimized for smartphones**: all sensors and charts can be viewed in the browser
 of a phone, tablet or another PC, with the same settings you configured in the desktop app.
+The desktop app itself comes with two new designs: **Sci-Fi** and an animated **Fancy** dashboard.
 
 ## What's new?
+
+- **Desktop designs** under **View → Design** (the choice is remembered):
+  - **Sci-Fi** (default): HUD header with live values and system state, status strip, framed sensor grid with
+    device and group heads, segmented meters and colored values (orange from 70 %, pink with ▲ from 90 %),
+    plot with legend, axis heads, line styles per curve and calm axis scaling. All functions of the classic
+    window (rename, hide, plot, pen color, context menus, gadget, tray, web server) stay the same.
+  - **Fancy Mode** (**F11**, the FANCY button or the menu; **Esc** returns): an animated dashboard inside the main
+    window with computed metrics: system stress (0 to 100, with its composition and weights), thermal headroom,
+    energy distribution (estimates marked as such), session energy, core matrix, activity and power history.
+    Options: **Reduced Motion** (follows the Windows animation setting), **Glow Effects**, **Fancy Mode in Fullscreen**.
+  - **Classic**: the familiar LibreHardwareMonitor look with the Light/Dark/Black/Auto themes. With Windows
+    high contrast, the first start uses Classic.
+
+  <p>
+    <img src="docs/images/desktop-scifi.png" alt="Sci-Fi design under full CPU load: HUD header, sensor grid with pink meters and plot with legend" width="800">
+  </p>
+  <p>
+    <img src="docs/images/desktop-fancy.png" alt="Fancy dashboard: orbital view with system stress in the center, hardware tiles, core matrix, telemetry, energy distribution and power history" width="800">
+  </p>
+
+  <sub>Sci-Fi window under full CPU load (real data), Fancy dashboard with a sample load scenario.
+  How the designs were reviewed in ten rounds is documented in [docs/desktop-design-council](docs/desktop-design-council/README.md).</sub>
+
 
 - **Mobile web interface** at `http://<PC-IP>:<port>/` (default port 8085)
   - One card per hardware item with its key values in the header, sensor groups, large readable values and load bars
@@ -68,6 +92,8 @@ dotnet build LibreHardwareMonitor.Windows.Forms\LibreHardwareMonitor.Windows.For
 The new web interface lives in `LibreHardwareMonitor.Windows.Forms/Resources/Web/` (`index.html`, `app.js`, `app.css`),
 the API in `LibreHardwareMonitor.Windows.Forms/Utilities/WebApi.cs`.
 How the design was reviewed and refined is documented in [docs/design-council](docs/design-council/README.md).
+The desktop designs live in `UI/SciFi/`, `UI/Fancy/` and `Telemetry/`; their review is documented in
+[docs/desktop-design-council](docs/desktop-design-council/README.md).
 
 ## Pulling in updates from LibreHardwareMonitor
 
@@ -84,8 +110,11 @@ git merge upstream/master
 - The LibreHardwareMonitor code is licensed under the **Mozilla Public License 2.0**, see [LICENSE-MPL-2.0](LICENSE-MPL-2.0).
   The MPL notices in those files are kept; section 3.3 of the MPL 2.0 allows distributing them as part of a
   larger work under the (A)GPL.
-- New K26K files (`WebApi.cs`, `Resources/Web/index.html`, `app.js`, `app.css`, `manifest.webmanifest`, `icon.svg`)
+- New K26K files (`WebApi.cs`, `Resources/Web/index.html`, `app.js`, `app.css`, `manifest.webmanifest`, `icon.svg`,
+  the desktop designs in `UI/SciFi/`, `UI/Fancy/`, `UI/Themes/SciFiTheme.cs`, `UI/MainForm.Design.cs` and `Telemetry/`)
   are licensed under AGPL-3.0-or-later.
+- The desktop designs use [SkiaSharp](https://github.com/mono/SkiaSharp) (MIT) and the embedded font
+  [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) (SIL Open Font License 1.1).
 - Further third-party notices: [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
 
 The web interface links to the source code (AGPL section 13).

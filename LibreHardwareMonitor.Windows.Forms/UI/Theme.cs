@@ -23,11 +23,12 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
                     _current.Apply(form);
                 }
 
-                Init();
+                _current.InstallTreeRenderers();
             }
         }
 
-        private static void Init()
+        // K26K: themes can draw the tree glyphs (expander, checkbox, column header) their own way.
+        protected virtual void InstallTreeRenderers()
         {
             TreeViewAdv.CustomPlusMinusRenderFunc = (g, rect, isExpanded) =>
             {
@@ -112,6 +113,9 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
                             _all.Add((Theme)type.GetConstructor(new Type[] { }).Invoke(new object[] { }));
                         }
                     }
+
+                    // K26K: designs such as Sci-Fi are themes too, but not part of the Classic theme menu.
+                    _all.RemoveAll(x => !x.ListedInThemeMenu);
                 }
                 return _all.OrderBy(x => x.DisplayName).ToList();
             }
@@ -164,6 +168,35 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
 
         public string Id { get; }
         public string DisplayName { get; }
+
+        // K26K: false for themes that belong to a design (e.g. Sci-Fi) instead of the Classic theme menu.
+        public virtual bool ListedInThemeMenu => true;
+
+        // K26K: font family for plot texts; null keeps the OxyPlot default.
+        public virtual string PlotFontFamily => null;
+
+        // K26K: gap between stacked plot axes (fraction of the height), a hint shown while nothing is plotted, uppercase axis titles.
+        public virtual double PlotStackGap => 0;
+        public virtual string PlotEmptyHint => null;
+        public virtual bool PlotUppercaseTitles => false;
+
+        // K26K: label format of the time axis; null keeps the original "h:mm".
+        public virtual string PlotTimeFormat => null;
+
+        // K26K: horizontal heads per stacked axis instead of rotated titles, a legend, and dashed separators.
+        public virtual bool PlotAxisHeads => false;
+        public virtual bool PlotShowLegend => false;
+        public virtual bool PlotDashedSeparators => false;
+
+        // K26K: plot font size (NaN = OxyPlot default), minimum line width, line styles that differ
+        // per series on the same axis (not by color alone), and a marker at the newest value.
+        public virtual double PlotFontSize => double.NaN;
+        public virtual double PlotMinStrokeThickness => 0;
+        public virtual bool PlotVaryLineStyles => false;
+        public virtual bool PlotEndMarkers => false;
+
+        // K26K: autoscaled value axes never zoom below a sensible span (noise must not look like a jump)
+        public virtual bool PlotMinimumSpans => false;
         public abstract Color BackgroundColor { get; }
         public abstract Color ForegroundColor { get; }
         public abstract Color HyperlinkColor { get; }

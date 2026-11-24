@@ -14,6 +14,7 @@ using LibreHardwareMonitor.Windows.Forms.Utilities;
 using OxyPlot;
 using OxyPlot.Annotations;
 using OxyPlot.Axes;
+using OxyPlot.Legends;
 using OxyPlot.WindowsForms;
 using OxyPlot.Series;
 using LibreHardwareMonitor.Windows.Forms.UI.Themes;
@@ -32,6 +33,17 @@ public class PlotPanel : UserControl
 
     // K26K: value axes the user zoomed or panned. Only their ranges are saved; all others autoscale.
     private readonly HashSet<SensorType> _userZoomedAxes = new HashSet<SensorType>();
+
+    // K26K: legend and horizontal axis heads ("TEMPERATURE // °C") used by the Sci-Fi design
+    private Legend _legend;
+    private readonly Dictionary<SensorType, TextAnnotation> _axisHeads = new Dictionary<SensorType, TextAnnotation>();
+
+    // K26K: sensor behind every series (legend values) and the marker at its newest value
+    private readonly Dictionary<LineSeries, ISensor> _seriesSensors = new Dictionary<LineSeries, ISensor>();
+    private readonly Dictionary<LineSeries, PointAnnotation> _endMarkers = new Dictionary<LineSeries, PointAnnotation>();
+    private double _strokeThickness = 1;
+
+    private bool AxisHeadsActive => Theme.Current.PlotAxisHeads && StackedAxes;
 
     // K26K: limits that keep every axis range finite. Infinite ranges made GDI+ throw an OverflowException.
     private const double AxisLimit = 1e15;
@@ -96,6 +108,9 @@ public class PlotPanel : UserControl
     public void ApplyTheme()
     {
         _model.Background = Theme.Current.PlotBackgroundColor.ToOxyColor();
+        // K26K: designs can use their own plot font (OxyPlot's default is Segoe UI).
+        _model.DefaultFont = Theme.Current.PlotFontFamily ?? "Segoe UI";
+        _model.DefaultFontSize = double.IsNaN(Theme.Current.PlotFontSize) ? 12 : Theme.Current.PlotFontSize;
         _model.PlotAreaBorderColor = Theme.Current.PlotBorderColor.ToOxyColor();
         foreach (Axis axis in _model.Axes)
         {
@@ -107,10 +122,211 @@ public class PlotPanel : UserControl
             axis.MinorTicklineColor = Theme.Current.PlotBorderColor.ToOxyColor();
             axis.TicklineColor = Theme.Current.PlotBorderColor.ToOxyColor();
         }
+        ApplyAxisTitles();
+        _model.TitleColor = Theme.Current.PlotTextColor.ToOxyColor();
+        _timeAxis.StringFormat = Theme.Current.PlotTimeFormat ?? "h:mm";
         foreach (LineAnnotation annotation in _model.Annotations.Select(x => x as LineAnnotation).Where(x => x != null))
         {
-            annotation.Color = Theme.Current.PlotBorderColor.ToOxyColor();
+            annotation.Color = Theme.Current.PlotDashedSeparators ? Theme.Current.PlotGridMajorColor.ToOxyColor() : Theme.Current.PlotBorderColor.ToOxyColor();
+            annotation.LineStyle = Theme.Current.PlotDashedSeparators ? LineStyle.Dash : LineStyle.Solid;
+            annotation.StrokeThickness = Theme.Current.PlotDashedSeparators ? 1 : 2;
         }
+
+        // K26K: legend (which curve is which sensor) for designs that want one
+        if (Theme.Current.PlotShowLegend)
+        {
+            // below the plot, so it never covers a curve
+            // (the model already has a legend, invisible in Classic; it is configured here)
+            if (_legend == null)
+            {
+                _legend = _model.Legends.OfType<Legend>().FirstOrDefault();
+                if (_legend == null)
+                {
+                    _legend = new Legend();
+                    _model.Legends.Add(_legend);
+                }
+                // one entry per line in axis order; more than four entries continue in a second column
+                _legend.LegendPosition = LegendPosition.BottomLeft;
+                _legend.LegendPlacement = LegendPlacement.Outside;
+                _legend.LegendOrientation = LegendOrientation.Vertical;
+                _legend.LegendMaxHeight = 4 * 19 * _dpiYScale + 14 * _dpiYScale;
+                _legend.LegendLineSpacing = 3 * _dpiYScale;
+                _legend.LegendItemAlignment = OxyPlot.HorizontalAlignment.Left;
+                _legend.LegendSymbolLength = 22 * _dpiXScale;
+                _legend.LegendFontSize = 12;
+                _legend.LegendPadding = 6 * _dpiXScale;
+                _legend.LegendItemSpacing = 18 * _dpiXScale;
+                _legend.LegendColumnSpacing = 18 * _dpiXScale;
+                _legend.LegendMargin = 6 * _dpiXScale;
+            }
+            _legend.LegendBackground = Theme.Current.PlotBackgroundColor.ToOxyColor();
+            _legend.LegendBorder = OxyColor.FromAColor(110, Theme.Current.HyperlinkColor.ToOxyColor());
+            _legend.LegendTextColor = Theme.Current.ForegroundColor.ToOxyColor();
+            _model.IsLegendVisible = true;
+        }
+        else
+        {
+            _model.IsLegendVisible = false;
+        }
+        ApplySeriesStyle();
+        UpdateAxisHeads();
+    }
+
+    // Rotated axis titles, unless the design shows horizontal heads (only possible with stacked axes).
+    private void ApplyAxisTitles()
+    {
+        foreach (KeyValuePair<SensorType, LinearAxis> pair in _axes)
+        {
+            LinearAxis axis = pair.Value;
+            axis.MinimumRange = Theme.Current.PlotMinimumSpans ? MinimumSpan(pair.Key) : 0;
+            // a little room above the highest value, so a curve at 100 % is not hidden by the separator
+            axis.MaximumPadding = Theme.Current.PlotMinimumSpans ? 0.05 : 0.01;
+            if (string.IsNullOrEmpty(axis.Key))
+                continue;
+            axis.Title = AxisHeadsActive ? null : Theme.Current.PlotUppercaseTitles ? axis.Key.ToUpperInvariant() : axis.Key;
+            // with horizontal heads the rotated title (including the unit) is not drawn at all
+            axis.TitleFormatString = AxisHeadsActive ? " " : "{0} [{1}]";
+        }
+    }
+
+    // Smallest span an autoscaled axis shows, so a 0.4 K wobble does not fill the whole height.
+    private double MinimumSpan(SensorType type) => type switch
+    {
+        SensorType.Temperature => _unitManager.TemperatureUnit == TemperatureUnit.Fahrenheit ? 18 : 10,
+        SensorType.Load or SensorType.Control or SensorType.Level or SensorType.Humidity => 10,
+        SensorType.Power => 10,
+        SensorType.Clock => 200,
+        SensorType.Fan => 300,
+        SensorType.Voltage => 0.2,
+        SensorType.Current => 1,
+        SensorType.Flow => 50,
+        SensorType.Data => 1,
+        _ => 0
+    };
+
+    // K26K: line width, line style per series of one axis, legend titles and end markers.
+    private void ApplySeriesStyle()
+    {
+        var perAxis = new Dictionary<string, int>();
+        LineStyle[] styles = { LineStyle.Solid, LineStyle.Dash, LineStyle.Dot, LineStyle.DashDot, LineStyle.LongDash };
+        foreach (LineSeries series in _model.Series.OfType<LineSeries>())
+        {
+            series.StrokeThickness = Math.Max(_strokeThickness, Theme.Current.PlotMinStrokeThickness);
+            perAxis.TryGetValue(series.YAxisKey ?? "", out int index);
+            perAxis[series.YAxisKey ?? ""] = index + 1;
+            series.LineStyle = Theme.Current.PlotVaryLineStyles ? styles[index % styles.Length] : LineStyle.Automatic;
+        }
+        UpdateSeriesTitles();
+        UpdateEndMarkers();
+    }
+
+    private static string TypeTag(SensorType type) => type switch
+    {
+        SensorType.Temperature => "TEMP",
+        SensorType.Voltage => "VOLT",
+        SensorType.Control => "CTRL",
+        SensorType.Throughput => "RATE",
+        _ => type.ToString().ToUpperInvariant()
+    };
+
+    // Classic: "hardware sensor". With a legend: "RTX 2070 SUPER GPU CORE // TEMP  42.0 °C".
+    private void UpdateSeriesTitles()
+    {
+        foreach (KeyValuePair<LineSeries, ISensor> pair in _seriesSensors)
+        {
+            ISensor sensor = pair.Value;
+            if (!Theme.Current.PlotShowLegend)
+            {
+                pair.Key.Title = sensor.Hardware.Name + " " + sensor.Name;
+                continue;
+            }
+
+            // "Total Memory" + "Memory" is shown once
+            string hardware = Telemetry.SystemMetrics.ShortHardwareName(sensor.Hardware.Name, 16);
+            string name = hardware.EndsWith(sensor.Name, StringComparison.OrdinalIgnoreCase) ? hardware : hardware + " " + sensor.Name;
+            string title = name.ToUpperInvariant() + " // " + TypeTag(sensor.SensorType);
+            DataPoint? last = LastPoint(sensor);
+            if (last.HasValue && !double.IsNaN(last.Value.Y))
+            {
+                string unit = _axes.TryGetValue(sensor.SensorType, out LinearAxis axis) ? axis.Unit : "";
+                title += "  " + last.Value.Y.ToString(Math.Abs(last.Value.Y) >= 100 ? "0" : "0.0") + (string.IsNullOrEmpty(unit) ? "" : " " + unit);
+            }
+            pair.Key.Title = title;
+        }
+    }
+
+    // A dot on the newest value of every curve, so the current reading is easy to find.
+    private void UpdateEndMarkers()
+    {
+        foreach (KeyValuePair<LineSeries, PointAnnotation> pair in _endMarkers.ToList())
+        {
+            if (!Theme.Current.PlotEndMarkers || !_seriesSensors.ContainsKey(pair.Key))
+            {
+                _model.Annotations.Remove(pair.Value);
+                _endMarkers.Remove(pair.Key);
+            }
+        }
+        if (!Theme.Current.PlotEndMarkers)
+            return;
+
+        foreach (KeyValuePair<LineSeries, ISensor> pair in _seriesSensors)
+        {
+            DataPoint? last = LastPoint(pair.Value);
+            if (!_endMarkers.TryGetValue(pair.Key, out PointAnnotation marker))
+            {
+                marker = new PointAnnotation { Shape = MarkerType.Circle, Size = 3.5, StrokeThickness = 1.5, Layer = AnnotationLayer.AboveSeries };
+                _endMarkers[pair.Key] = marker;
+                _model.Annotations.Add(marker);
+            }
+            marker.YAxisKey = pair.Key.YAxisKey;
+            marker.Fill = pair.Key.Color;
+            marker.Stroke = Theme.Current.PlotBackgroundColor.ToOxyColor();
+            bool visible = last.HasValue && !double.IsNaN(last.Value.Y);
+            marker.X = visible ? last.Value.X : double.NaN;
+            marker.Y = visible ? last.Value.Y : double.NaN;
+            marker.Size = visible ? 3.5 : 0;
+        }
+    }
+
+    private DataPoint? LastPoint(ISensor sensor)
+    {
+        SensorValue[] values;
+        try
+        {
+            values = sensor.Values.ToArray();
+        }
+        catch (InvalidOperationException)
+        {
+            // the history changed while it was copied; the next update shows the value
+            return null;
+        }
+        if (values.Length == 0)
+            return null;
+        return ToDataPoint(sensor.SensorType, values[values.Length - 1]);
+    }
+
+    private DataPoint ToDataPoint(SensorType type, SensorValue value)
+    {
+        float displayedValue;
+
+        if (type == SensorType.Temperature && _unitManager.TemperatureUnit == TemperatureUnit.Fahrenheit)
+        {
+            displayedValue = UnitManager.CelsiusToFahrenheit(value.Value).Value;
+        }
+        else if (type == SensorType.Data)
+        {
+            displayedValue = UnitManager.BytesToGigaBytes(value.Value).Value;
+        }
+        else
+        {
+            displayedValue = value.Value;
+        }
+
+        // K26K: an infinite value would stretch the axis to infinity; draw it as a gap instead.
+        if (float.IsInfinity(displayedValue))
+            displayedValue = float.NaN;
+
+        return new DataPoint((_now - value.Time).TotalSeconds, displayedValue);
     }
 
     public void SetCurrentSettings()
@@ -381,39 +597,17 @@ public class PlotPanel : UserControl
     public void SetSensors(List<ISensor> sensors, IDictionary<ISensor, Color> colors, double strokeThickness)
     {
         _model.Series.Clear();
+        _seriesSensors.Clear();
+        _strokeThickness = strokeThickness;
         var types = new HashSet<SensorType>();
 
-
-        DataPoint CreateDataPoint(SensorType type, SensorValue value)
-        {
-            float displayedValue;
-
-            if (type == SensorType.Temperature && _unitManager.TemperatureUnit == TemperatureUnit.Fahrenheit)
-            {
-                displayedValue = UnitManager.CelsiusToFahrenheit(value.Value).Value;
-            }
-            else if (type == SensorType.Data)
-            {
-                displayedValue = UnitManager.BytesToGigaBytes(value.Value).Value;
-            }
-            else
-            {
-                displayedValue = value.Value;
-            }
-
-            // K26K: an infinite value would stretch the axis to infinity; draw it as a gap instead.
-            if (float.IsInfinity(displayedValue))
-                displayedValue = float.NaN;
-
-            return new DataPoint((_now - value.Time).TotalSeconds, displayedValue);
-        }
-
-
-        foreach (ISensor sensor in sensors)
+        // with a legend the series are grouped by axis, so the legend reads axis by axis
+        IEnumerable<ISensor> ordered = Theme.Current.PlotShowLegend ? sensors.OrderBy(s => s.SensorType) : sensors;
+        foreach (ISensor sensor in ordered)
         {
             var series = new LineSeries
             {
-                ItemsSource = sensor.Values.Select(value => CreateDataPoint(sensor.SensorType, value)),
+                ItemsSource = sensor.Values.Select(value => ToDataPoint(sensor.SensorType, value)),
                 Color = colors[sensor].ToOxyColor(),
                 StrokeThickness = strokeThickness,
                 YAxisKey = _axes[sensor.SensorType].Key,
@@ -421,9 +615,11 @@ public class PlotPanel : UserControl
             };
 
             _model.Series.Add(series);
+            _seriesSensors[series] = sensor;
 
             types.Add(sensor.SensorType);
         }
+        ApplySeriesStyle();
 
         foreach (KeyValuePair<SensorType, LinearAxis> pair in _axes.Reverse())
         {
@@ -431,6 +627,11 @@ public class PlotPanel : UserControl
             SensorType type = pair.Key;
             axis.IsAxisVisible = types.Contains(type);
         }
+
+        // K26K: a hint while nothing is plotted (only designs that define one)
+        _model.Title = sensors.Count == 0 ? Theme.Current.PlotEmptyHint : null;
+        _model.TitleFontSize = 12;
+        _model.TitleFontWeight = OxyPlot.FontWeights.Normal;
 
         UpdateAxesInteraction();
         UpdateAxesPosition();
@@ -457,9 +658,10 @@ public class PlotPanel : UserControl
 
     public void UpdateStrokeThickness(double strokeThickness)
     {
+        _strokeThickness = strokeThickness;
         foreach (LineSeries series in _model.Series)
         {
-            series.StrokeThickness = strokeThickness;
+            series.StrokeThickness = Math.Max(strokeThickness, Theme.Current.PlotMinStrokeThickness);
         }
         InvalidatePlot();
     }
@@ -477,6 +679,11 @@ public class PlotPanel : UserControl
                 double delta = axis.IsAxisVisible ? 1.0 / count : 0;
                 start += delta;
                 axis.EndPosition = start;
+                // K26K: designs can leave a gap between stacked axes so their labels do not touch
+                // (the gap sits above every axis, where its head is drawn)
+                double gap = Theme.Current.PlotStackGap;
+                if (axis.IsAxisVisible && gap > 0 && delta > gap * 2)
+                    axis.EndPosition -= gap;
                 axis.PositionTier = 0;
                 axis.MajorGridlineStyle = LineStyle.Solid;
                 axis.MinorGridlineStyle = LineStyle.Solid;
@@ -537,9 +744,55 @@ public class PlotPanel : UserControl
             }
 
             ResetInvalidAxes();
+            ApplyAxisTitles();
+            UpdateAxisHeads();
+            UpdateSeriesTitles();
+            UpdateEndMarkers();
         }
 
         _plot?.InvalidatePlot(true);
+    }
+
+    // A head at the top left of every visible axis area; the time axis runs right to left, so its maximum is the left edge.
+    private void UpdateAxisHeads()
+    {
+        foreach (KeyValuePair<SensorType, LinearAxis> pair in _axes)
+        {
+            LinearAxis axis = pair.Value;
+            bool show = AxisHeadsActive && axis.IsAxisVisible && !double.IsNaN(axis.ActualMaximum) && !double.IsNaN(_timeAxis.ActualMaximum);
+            _axisHeads.TryGetValue(pair.Key, out TextAnnotation head);
+            if (!show)
+            {
+                if (head != null && _model.Annotations.Contains(head))
+                    _model.Annotations.Remove(head);
+                continue;
+            }
+
+            if (head == null)
+            {
+                head = new TextAnnotation
+                {
+                    YAxisKey = axis.Key,
+                    TextHorizontalAlignment = OxyPlot.HorizontalAlignment.Left,
+                    // sits in the gap above the axis, on the dashed separator, not on a grid line
+                    TextVerticalAlignment = OxyPlot.VerticalAlignment.Bottom,
+                    Stroke = OxyColors.Transparent,
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 12,
+                    Padding = new OxyThickness(6, 2, 6, 3),
+                    ClipByYAxis = false,
+                    Layer = AnnotationLayer.AboveSeries
+                };
+                _axisHeads[pair.Key] = head;
+            }
+
+            if (!_model.Annotations.Contains(head))
+                _model.Annotations.Add(head);
+            head.Text = axis.Key.ToUpperInvariant() + (string.IsNullOrEmpty(axis.Unit) ? "" : "  //  " + axis.Unit);
+            head.TextColor = Theme.Current.HyperlinkColor.ToOxyColor();
+            head.Background = OxyColor.FromAColor(200, Theme.Current.PlotBackgroundColor.ToOxyColor());
+            head.TextPosition = new DataPoint(_timeAxis.ActualMaximum, axis.ActualMaximum);
+        }
     }
 
     public void TimeAxisZoom(double min, double max)

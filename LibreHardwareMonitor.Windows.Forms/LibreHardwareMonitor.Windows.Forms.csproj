@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <PackageReference Include="OxyPlot.Core" Version="2.2.0" />
+    <PackageReference Include="SkiaSharp" Version="4.157.0" />
     <PackageReference Include="OxyPlot.WindowsForms" Version="2.2.0" />
     <PackageReference Include="System.IO.Ports" Version="11.0.0" />
     <PackageReference Include="System.Management" Version="11.0.0" />

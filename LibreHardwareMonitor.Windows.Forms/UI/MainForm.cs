@@ -553,6 +553,7 @@ public sealed partial class MainForm : Form
         InitializeTheme();
         InitializePlotForm();
         InitializeSplitter();
+        InitializeDesign(); // K26K: Classic, Sci-Fi and Fancy designs (MainForm.Design.cs)
 
         startupMenuItem.Visible = _startupManager.IsAvailable;
 
@@ -987,7 +988,7 @@ public sealed partial class MainForm : Form
         _plotPanel.SetCurrentSettings();
 
         foreach (TreeColumn column in treeView.Columns)
-            _settings.SetValue("treeView.Columns." + column.Header + ".Width", column.Width);
+            _settings.SetValue("treeView.Columns." + column.Header + ".Width", ColumnWidthForSave(column)); // K26K: Classic width
 
         _settings.SetValue("listenerIp", Server.ListenerIp);
         _settings.SetValue("listenerPort", Server.ListenerPort);
@@ -1269,7 +1270,7 @@ public sealed partial class MainForm : Form
         {
             SysTrayHideShow();
         }
-        else if (m.Msg == WM_WININICHANGE && Marshal.PtrToStringUni(m.LParam) == "ImmersiveColorSet" && _autoThemeMenuItem?.Checked == true)
+        else if (m.Msg == WM_WININICHANGE && Marshal.PtrToStringUni(m.LParam) == "ImmersiveColorSet" && _autoThemeMenuItem?.Checked == true && !DesignOwnsTheme)
         {
             Theme.SetAutoTheme();
         }
