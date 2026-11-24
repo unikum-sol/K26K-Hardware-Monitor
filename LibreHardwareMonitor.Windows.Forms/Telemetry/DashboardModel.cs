@@ -97,6 +97,9 @@ public sealed class DashboardModel
 
     /// <summary>Hardware nodes for the orbital view and the tile column.</summary>
     public List<HardwareTile> Tiles { get; set; } = new();
+
+    /// <summary>A copy that shares the lists and arrays (used for the transitions of the Fancy dashboard).</summary>
+    public DashboardModel ShallowCopy() => (DashboardModel)MemberwiseClone();
 }
 
 public sealed class HardwareTile
@@ -112,6 +115,8 @@ public sealed class HardwareTile
     public double Power { get; set; } = double.NaN;
     /// <summary>Short secondary value, e.g. "4.9 GHz" or "↓ 1.2 MB/s".</summary>
     public string Detail { get; set; } = "";
+
+    public HardwareTile Copy() => (HardwareTile)MemberwiseClone();
 }
 
 public sealed class ThermalEntry

@@ -14,8 +14,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using SkiaSharp;
 
@@ -65,6 +67,11 @@ public abstract class SkiaView : Control
             surface.Canvas.ClipRect(new SKRect(clip.Left, clip.Top, clip.Right, clip.Bottom));
             Render(surface.Canvas, w, h, UiScale);
             surface.Canvas.Flush();
+
+            // straight from the pixel memory to the window (much cheaper than Graphics.DrawImage for animations);
+            // the window clips to the invalidated parts
+            if (CopyToScreen(e.Graphics, data, clip))
+                return;
         }
         finally
         {
@@ -73,6 +80,52 @@ public abstract class SkiaView : Control
 
         e.Graphics.DrawImage(_bitmap, clip, clip, GraphicsUnit.Pixel);
     }
+
+    private static bool CopyToScreen(Graphics g, BitmapData data, Rectangle clip)
+    {
+        var header = new BITMAPINFOHEADER
+        {
+            biSize = (uint)Marshal.SizeOf<BITMAPINFOHEADER>(),
+            biWidth = data.Width,
+            biHeight = -clip.Height, // top-down rows, starting at the first row of the clip
+            biPlanes = 1,
+            biBitCount = 32
+        };
+        IntPtr bits = data.Scan0 + clip.Top * data.Stride;
+        IntPtr hdc = g.GetHdc();
+        try
+        {
+            return SetDIBitsToDevice(hdc, clip.Left, clip.Top, (uint)clip.Width, (uint)clip.Height, clip.Left, 0, 0, (uint)clip.Height, bits, ref header, 0) != 0;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        finally
+        {
+            g.ReleaseHdc(hdc);
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct BITMAPINFOHEADER
+    {
+        public uint biSize;
+        public int biWidth;
+        public int biHeight;
+        public ushort biPlanes;
+        public ushort biBitCount;
+        public uint biCompression;
+        public uint biSizeImage;
+        public int biXPelsPerMeter;
+        public int biYPelsPerMeter;
+        public uint biClrUsed;
+        public uint biClrImportant;
+    }
+
+    [DllImport("gdi32.dll")]
+    private static extern int SetDIBitsToDevice(IntPtr hdc, int xDest, int yDest, uint width, uint height, int xSrc, int ySrc,
+                                                uint startScan, uint lines, IntPtr bits, ref BITMAPINFOHEADER header, uint colorUse);
 
     protected override void Dispose(bool disposing)
     {
