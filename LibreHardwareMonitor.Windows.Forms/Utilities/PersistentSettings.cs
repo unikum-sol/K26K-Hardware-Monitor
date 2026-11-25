@@ -126,6 +126,9 @@ public class PersistentSettings : ISettings
         catch { }
     }
 
+    /// <summary>K26K: all keys (a copy), e.g. to remove the sensor histories before saving.</summary>
+    public IReadOnlyList<string> Keys => new List<string>(_settings.Keys);
+
     public bool Contains(string name)
     {
         return _settings.ContainsKey(name);

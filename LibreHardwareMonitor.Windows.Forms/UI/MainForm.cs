@@ -74,6 +74,7 @@ public sealed partial class MainForm : Form
 
         _settings = new PersistentSettings();
         _settings.Load(Path.ChangeExtension(Application.ExecutablePath, ".config"));
+        RestoreSensorHistory(); // K26K: history of the last run, before the sensors are created (MainForm.History.cs)
 
         _unitManager = new UnitManager(_settings);
 
@@ -554,6 +555,7 @@ public sealed partial class MainForm : Form
         InitializePlotForm();
         InitializeSplitter();
         InitializeDesign(); // K26K: Classic, Sci-Fi and Fancy designs (MainForm.Design.cs)
+        InitializeHistory(); // K26K: keep the sensor history after a restart (MainForm.History.cs)
 
         startupMenuItem.Visible = _startupManager.IsAvailable;
 
@@ -575,6 +577,7 @@ public sealed partial class MainForm : Form
         // Make sure the settings are saved when the user logs off
         Microsoft.Win32.SystemEvents.SessionEnded += delegate
         {
+            SaveSensorHistoryOnExit(); // K26K
             _computer.Close();
             SaveConfiguration();
             if (_runWebServer.Value)
@@ -998,6 +1001,9 @@ public sealed partial class MainForm : Form
 
         string fileName = Path.ChangeExtension(Application.ExecutablePath, ".config");
 
+        // K26K: the sensor histories are kept in their own file, not in the settings
+        SensorHistoryStore.RemoveFromSettings(_settings);
+
         try
         {
             _settings.Save(fileName);
@@ -1073,6 +1079,7 @@ public sealed partial class MainForm : Form
         Visible = false;
         _systemTray.IsMainIconEnabled = false;
         timer.Enabled = false;
+        SaveSensorHistoryOnExit(); // K26K: before the hardware closes
         _computer.Close();
         SaveConfiguration();
         if (_runWebServer.Value)
