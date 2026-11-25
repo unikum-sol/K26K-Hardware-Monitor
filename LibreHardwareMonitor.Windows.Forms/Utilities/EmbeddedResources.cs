@@ -41,7 +41,10 @@ public class EmbeddedResources
         return new Bitmap(1, 1);
     }
 
-    public static Icon GetIcon(string name)
+    public static Icon GetIcon(string name) => GetIcon(name, Size.Empty);
+
+    /// <summary>K26K: loads the icon image drawn for this size (e.g. the tray size), not the default 32 x 32 one.</summary>
+    public static Icon GetIcon(string name, Size size)
     {
         name = $"{ResourceNamespace}." + name;
         string[] names = Assembly.GetExecutingAssembly().GetManifestResourceNames();
@@ -51,7 +54,7 @@ public class EmbeddedResources
             {
                 using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(names[i]))
                 {
-                    return new Icon(stream);
+                    return size.IsEmpty ? new Icon(stream) : new Icon(stream, size);
                 }
             }
         }

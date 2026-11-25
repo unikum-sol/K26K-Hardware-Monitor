@@ -35,6 +35,13 @@ The desktop app itself comes with two new designs: **Sci-Fi** and an animated **
   How the designs were reviewed in ten rounds is documented in [docs/desktop-design-council](docs/desktop-design-council/README.md).</sub>
 
 
+- **History kept after a restart** (**Options → Keep History After Restart**, on by default): the recorded sensor values
+  (up to 24 hours, see **Sensor Values Time Window**) survive closing the program and restarting Windows. They are
+  saved on exit, at Windows shutdown and every 10 minutes into `K26KHardwareMonitor.history` next to the program; the
+  last hour as recorded, older values as 30 second averages (a full day is a few MB). Switched off, the recording
+  starts empty after each start and the file is deleted. The plot, the web interface and its charts show the restored
+  history; the short Fancy and Sci-Fi charts start fresh.
+
 - **Mobile web interface** at `http://<PC-IP>:<port>/` (default port 8085)
   - One card per hardware item with its key values in the header, sensor groups, large readable values and load bars
   - Quick-jump bar (CPU, GPU, storage, network …) for systems with many devices

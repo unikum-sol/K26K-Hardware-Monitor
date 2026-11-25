@@ -1174,7 +1174,7 @@ namespace LibreHardwareMonitor.Windows.Forms.UI
             this.MainMenuStrip = this.mainMenu;
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
-            this.Text = "Libre Hardware Monitor";
+            this.Text = "K26K Hardware Monitor";
             this.Load += new System.EventHandler(this.MainForm_Load);
             this.ResizeEnd += new System.EventHandler(this.MainForm_MoveOrResize);
             this.Move += new System.EventHandler(this.MainForm_MoveOrResize);
