@@ -50,8 +50,8 @@ public class SystemTray : IDisposable
         {
             SendHideShowCommand();
         };
-        _mainIcon.Icon = EmbeddedResources.GetIcon("smallicon.ico");
-        _mainIcon.Text = "Libre Hardware Monitor";
+        _mainIcon.Icon = EmbeddedResources.GetIcon("smallicon.ico", System.Windows.Forms.SystemInformation.SmallIconSize); // K26K: the image drawn for the tray size
+        _mainIcon.Text = "K26K Hardware Monitor";
     }
 
     private void HardwareRemoved(IHardware hardware)
