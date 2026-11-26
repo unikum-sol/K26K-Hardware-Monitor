@@ -22,9 +22,11 @@ The desktop app itself comes with new designs: **Sci-Fi** and **Bridge**, each w
     black. Header with live values, state and FANCY pill, sensor grid and plot in elbow frames, a status strip of
     color blocks. All functions of the classic window stay the same, as in Sci-Fi.
   - **Bridge Fancy** (F11, the FANCY pill or the menu while Bridge is active; **Esc** returns): the Fancy dashboard
-    with the same data and functions in the Bridge look: stress gauge with its four parts, a block per device,
-    system flow (load as fill, share of the power as track thickness), core matrix, thermals, activity,
-    telemetry, energy distribution, thermal headroom and power history. It uses less CPU than Fancy (no glow).
+    with the same data and functions in the Bridge look: a stress field (the index on a perspective floor with
+    a scale, a tilted orbit per stress part whose radius is its value, a marker circling on it and streams that
+    flow into the core with the part's share), a block per device, system flow (load as fill, share of the power
+    as track thickness), core matrix, thermals, activity, telemetry, energy distribution, thermal headroom and
+    power history. It needs about as much CPU as Fancy.
   - Sci-Fi, Bridge and both dashboards have no Windows title bar: minimize, maximize and close are drawn in the
     design (Sci-Fi and Bridge at the right of the menu row, the dashboards in their top strip). The menu row, the header and the top strip move the window
     (drag, double click to maximize, snap), the window edges resize it.
@@ -41,7 +43,7 @@ The desktop app itself comes with new designs: **Sci-Fi** and **Bridge**, each w
     <img src="docs/images/desktop-bridge.png" alt="Bridge design under full CPU load: elbow frames, colored pill menu, sensor grid with rounded meters and plot" width="800">
   </p>
   <p>
-    <img src="docs/images/desktop-bridge-fancy.png" alt="Bridge Fancy dashboard: device blocks in the left arm, stress gauge, system flow, core matrix, thermals, telemetry and power history" width="800">
+    <img src="docs/images/desktop-bridge-fancy.png" alt="Bridge Fancy dashboard: device blocks in the left arm, stress field with orbits and a scale, system flow, core matrix, thermals, telemetry and power history" width="800">
   </p>
 
   <sub>Sci-Fi and Bridge windows under full CPU load (real data), the dashboards with a sample load scenario.

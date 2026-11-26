@@ -201,3 +201,20 @@ Polish suggested in the last rounds and left for later: a slightly lighter scrol
 - Switching at runtime: Sci-Fi to Bridge, F11 to Bridge Fancy, Esc back, Classic, F11 from Classic to Fancy, Esc to Sci-Fi; the setting `design` is saved as `bridgefancy` after closing in Bridge Fancy.
 - Smooth values (frame sequence across updates) and the runners on the flow tracks; CPU of Bridge Fancy at 1600x900 about 18 % of one core (Fancy: about 25 %).
 - net472 and net10.0-windows build; the net472 build renders the Bridge header identically.
+
+## After the council: a new stress panel
+
+On the owner's request the stress block of Bridge Fancy (a segmented half ring with the four parts below it) was
+replaced after the council had finished. References from the owner served as ideas only: a perspective grid with
+orbits, fine line bundles with labeled markers, and a bracket frame with a scale. Everything is drawn anew from
+our own data, and no screen, text or number was copied.
+
+- A text column: index, state, the four parts with their marker, value, weight and meaning, and the formula
+  (shortened or left out when the panel is small).
+- The stress field: a perspective floor with rings at 25 to 100 and a bright ring at the index, a core that rises
+  with the index, a tilted orbit per part whose radius is the part's value with a marker circling on it (faster
+  with a higher value), and streams that flow from each part into the core, more and brighter with its share.
+- A bracket scale from 000 to 100 at the right edge, with the ranges of the states and an oval marker at the index.
+
+Checked at 1366, 1920 and 150 %, with reduced motion, and as a frame sequence in the real window under load;
+CPU at 1600x900 about 22.5 % of one core (Fancy: about 23.6 %). This panel was not reviewed by the council again.
