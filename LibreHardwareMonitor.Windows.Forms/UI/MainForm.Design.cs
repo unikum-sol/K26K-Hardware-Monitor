@@ -1,4 +1,4 @@
-// K26K Hardware Monitor - design switching (Classic, Sci-Fi, Fancy) for the main window.
+// K26K Hardware Monitor - design switching (Classic, Sci-Fi, Bridge and their dashboards) for the main window.
 // Copyright (C) 2026 K26K Hardware Monitor contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -23,6 +23,7 @@ using System.Windows.Forms;
 using Aga.Controls.Tree.NodeControls;
 using LibreHardwareMonitor.Hardware;
 using LibreHardwareMonitor.Windows.Forms.Telemetry;
+using LibreHardwareMonitor.Windows.Forms.UI.Bridge;
 using LibreHardwareMonitor.Windows.Forms.UI.Design;
 using LibreHardwareMonitor.Windows.Forms.UI.Fancy;
 using LibreHardwareMonitor.Windows.Forms.UI.SciFi;
@@ -33,7 +34,8 @@ namespace LibreHardwareMonitor.Windows.Forms.UI;
 public enum UiDesign
 {
     Classic,
-    SciFi
+    SciFi,
+    Bridge
 }
 
 public sealed partial class MainForm
@@ -47,6 +49,7 @@ public sealed partial class MainForm
     private FancyDashboard _fancy;
     private ToolStripMenuItem _designClassicItem;
     private ToolStripMenuItem _designSciFiItem;
+    private ToolStripMenuItem _designBridgeItem;
     private ToolStripMenuItem _fancyItem;
     private ToolStripMenuItem _reducedMotionItem;
     private ToolStripMenuItem _fancyGlowItem;
@@ -58,6 +61,10 @@ public sealed partial class MainForm
     private Font _sciFiLabelFont;
     private Font _sciFiValueFont;
     private Font _sciFiDeviceFont;
+
+    /// <summary>Header and status strip of the active design (Sci-Fi or Bridge), null in Classic.</summary>
+    private Control _activeHeader;
+    private Control _activeStatus;
 
     // visible sensors below a device (sub-devices included)
     private static int CountSensors(Node node)
@@ -116,6 +123,7 @@ public sealed partial class MainForm
         backgroundUpdater.RunWorkerCompleted += delegate { UpdateDashboard(); };
         splitContainer.Panel1.Paint += SciFiPanel_Paint;
         splitContainer.Panel2.Paint += SciFiPanel_Paint;
+        InitializeBridge();
 
         // Sci-Fi is the default, except with Windows high contrast, where Classic follows the system colors
         string saved = _settings.GetValue("design", System.Windows.Forms.SystemInformation.HighContrast ? "classic" : "scifi");
@@ -142,8 +150,9 @@ public sealed partial class MainForm
         }
         else
         {
-            ApplyDesign(UiDesign.SciFi, false);
-            if (saved == "fancy")
+            bool bridge = saved == "bridge" || saved == "bridgefancy";
+            ApplyDesign(bridge ? UiDesign.Bridge : UiDesign.SciFi, false);
+            if (saved == "fancy" || saved == "bridgefancy")
                 EnterFancy();
         }
     }
@@ -187,6 +196,7 @@ public sealed partial class MainForm
         var designMenu = new ToolStripMenuItem("Design");
         _designClassicItem = new ToolStripMenuItem("Classic");
         _designSciFiItem = new ToolStripMenuItem("Sci-Fi");
+        _designBridgeItem = new ToolStripMenuItem("Bridge");
         _fancyItem = new ToolStripMenuItem("Fancy Mode") { ShortcutKeyDisplayString = "F11" };
         _reducedMotionItem = new ToolStripMenuItem("Reduced Motion");
         _fancyFullscreenItem = new ToolStripMenuItem("Fancy Mode in Fullscreen");
@@ -201,6 +211,7 @@ public sealed partial class MainForm
 
         _designClassicItem.Click += delegate { ApplyDesign(UiDesign.Classic, true); };
         _designSciFiItem.Click += delegate { ApplyDesign(UiDesign.SciFi, true); };
+        _designBridgeItem.Click += delegate { ApplyDesign(UiDesign.Bridge, true); };
         _fancyItem.Click += delegate { ToggleFancy(); };
         _reducedMotionItem.Click += delegate
         {
@@ -215,15 +226,16 @@ public sealed partial class MainForm
             _settings.SetValue("fancyFullscreen", _fancyFullscreenItem.Checked);
         };
 
-        designMenu.DropDownItems.AddRange(new ToolStripItem[] { _designClassicItem, _designSciFiItem, new ToolStripSeparator(), _fancyItem, _reducedMotionItem, _fancyGlowItem, _fancyFullscreenItem });
+        designMenu.DropDownItems.AddRange(new ToolStripItem[] { _designClassicItem, _designSciFiItem, _designBridgeItem, new ToolStripSeparator(), _fancyItem, _reducedMotionItem, _fancyGlowItem, _fancyFullscreenItem });
         viewMenuItem.DropDownItems.Add(new ToolStripSeparator());
         viewMenuItem.DropDownItems.Add(designMenu);
 
         if (!_skiaAvailable)
         {
             _designSciFiItem.Enabled = false;
+            _designBridgeItem.Enabled = false;
             _fancyItem.Enabled = false;
-            _designSciFiItem.ToolTipText = _fancyItem.ToolTipText = "SkiaSharp could not be loaded.";
+            _designSciFiItem.ToolTipText = _designBridgeItem.ToolTipText = _fancyItem.ToolTipText = "SkiaSharp could not be loaded.";
         }
     }
 
@@ -232,32 +244,40 @@ public sealed partial class MainForm
         _design = mode;
         _designClassicItem.Checked = mode == UiDesign.Classic;
         _designSciFiItem.Checked = mode == UiDesign.SciFi;
+        _designBridgeItem.Checked = mode == UiDesign.Bridge;
         if (save)
-            _settings.SetValue("design", mode == UiDesign.SciFi ? "scifi" : "classic");
+            _settings.SetValue("design", DesignKey(mode, false));
 
         SuspendLayout();
-        if (mode == UiDesign.SciFi)
+        RemoveDesignChrome();
+        if (mode != UiDesign.Classic)
         {
+            bool bridge = mode == UiDesign.Bridge;
             _sciFiTreeFont ??= FontManager.CreateFont(9.75f);
             _sciFiMenuFont ??= FontManager.CreateFont(8.5f);
             _sciFiLabelFont ??= FontManager.CreateFont(8f, FontStyle.Bold);
+            Font treeFont = bridge ? BridgeTreeFont : _sciFiTreeFont;
+            Font menuFont = bridge ? BridgeMenuFont : _sciFiMenuFont;
 
-            treeView.Font = _sciFiTreeFont;
-            treeView.RowHeight = Math.Max(_classicRowHeight, _sciFiTreeFont.Height + 8);
-            mainMenu.Font = _sciFiMenuFont;
-            treeContextMenu.Font = _sciFiMenuFont;
-            splitContainer.Panel1.Padding = new Padding(10, 26, 10, 10);
-            splitContainer.Panel2.Padding = new Padding(10, 26, 10, 10);
+            treeView.Font = treeFont;
+            treeView.RowHeight = Math.Max(_classicRowHeight, treeFont.Height + 8);
+            mainMenu.Font = menuFont;
+            treeContextMenu.Font = menuFont;
+            splitContainer.Panel1.Padding = bridge ? BridgePanelPadding : new Padding(10, 26, 10, 10);
+            splitContainer.Panel2.Padding = bridge ? BridgePanelPadding : new Padding(10, 26, 10, 10);
             themeMenuItem.Enabled = false;
             SciFiBarControl.Active = true;
+            SciFiBarControl.Colors = bridge ? BridgeMeters : MeterPalette.SciFi;
+            CaptionPalette.Current = bridge ? BridgeDraw.Caption : CaptionPalette.SciFi;
             SciFiTheme.ValueHeaderIndent = _barControl.BarWidth + 2;
+            BridgeTheme.ValueHeaderIndent = _barControl.BarWidth + 2;
             // narrower name column; the tree hands the freed width to the value column (room for the meter)
             if (!_valueColumnWidened)
             {
                 treeView.Columns[0].Width -= MeterRoom;
                 _valueColumnWidened = true;
             }
-            SciFiIcons.Apply(_root, true);
+            SciFiIcons.Apply(_root, bridge ? BridgeIcons : IconTint.SciFi);
             foreach (ToolStripItem item in mainMenu.Items)
             {
                 if (item is CaptionButtonItem)
@@ -267,33 +287,35 @@ public sealed partial class MainForm
                 item.Text = _classicMenuTexts[item].ToUpperInvariant();
             }
 
-            if (_hudHeader == null)
+            if (bridge)
             {
-                _hudHeader = new HudHeader();
-                _hudHeader.FancyRequested += delegate { EnterFancy(); };
-                _hudStatus = new HudStatusBar();
-                AttachFrameHitTests(_hudHeader, _hudStatus);
+                CreateBridgeChrome();
+                _activeHeader = _bridgeHeader;
+                _activeStatus = _bridgeStatus;
+            }
+            else
+            {
+                if (_hudHeader == null)
+                {
+                    _hudHeader = new HudHeader();
+                    _hudHeader.FancyRequested += delegate { EnterFancy(); };
+                    _hudStatus = new HudStatusBar();
+                    AttachFrameHitTests(_hudHeader, _hudHeader.IsOnButton, _hudStatus);
+                }
+                _activeHeader = _hudHeader;
+                _activeStatus = _hudStatus;
             }
 
-            if (!Controls.Contains(_hudHeader))
-            {
-                Controls.Add(_hudHeader);
-                Controls.Add(_hudStatus);
-            }
+            Controls.Add(_activeHeader);
+            Controls.Add(_activeStatus);
             ArrangeDocking();
-            Theme.Current = new SciFiTheme();
+            Theme.Current = bridge ? new BridgeTheme() : new SciFiTheme();
             ApplyThemeToWindows();
             SetCustomFrame(true);
             UpdateDashboard();
         }
         else
         {
-            if (_hudHeader != null)
-            {
-                Controls.Remove(_hudHeader);
-                Controls.Remove(_hudStatus);
-            }
-
             treeView.Font = _classicTreeFont;
             treeView.RowHeight = _classicRowHeight;
             mainMenu.Font = _classicMenuFont;
@@ -302,12 +324,14 @@ public sealed partial class MainForm
             splitContainer.Panel2.Padding = _classicPanel2Padding;
             themeMenuItem.Enabled = true;
             SciFiBarControl.Active = false;
+            SciFiBarControl.Colors = MeterPalette.SciFi;
+            CaptionPalette.Current = CaptionPalette.SciFi;
             if (_valueColumnWidened)
             {
                 treeView.Columns[0].Width += MeterRoom;
                 _valueColumnWidened = false;
             }
-            SciFiIcons.Apply(_root, false);
+            SciFiIcons.Apply(_root, (IconTint)null);
             foreach (var pair in _classicMenuTexts)
                 pair.Key.Text = pair.Value;
             RestoreClassicTheme();
@@ -317,22 +341,43 @@ public sealed partial class MainForm
         ResumeLayout(true);
 
         PlotSelectionChanged(this, null);
+        SnapBridgeTree();
+        mainMenu.Invalidate();
         splitContainer.Panel1.Invalidate();
         splitContainer.Panel2.Invalidate();
         treeView.Invalidate();
     }
 
-    // Dock order: menu at the very top, Sci-Fi header below it, status strip at the bottom, content fills the rest.
+    // Dock order: menu at the very top, the design's header below it, status strip at the bottom, content fills the rest.
     private void ArrangeDocking()
     {
         Controls.SetChildIndex(splitContainer, 0);
-        if (_hudHeader != null && Controls.Contains(_hudHeader))
+        if (_activeHeader != null && Controls.Contains(_activeHeader))
         {
-            Controls.SetChildIndex(_hudHeader, 1);
-            Controls.SetChildIndex(_hudStatus, 2);
+            Controls.SetChildIndex(_activeHeader, 1);
+            Controls.SetChildIndex(_activeStatus, 2);
         }
         Controls.SetChildIndex(mainMenu, Controls.Count - 1);
     }
+
+    private void RemoveDesignChrome()
+    {
+        if (_activeHeader != null)
+        {
+            Controls.Remove(_activeHeader);
+            Controls.Remove(_activeStatus);
+        }
+        _activeHeader = null;
+        _activeStatus = null;
+    }
+
+    /// <summary>The value of the settings key "design".</summary>
+    private static string DesignKey(UiDesign design, bool fancy) => design switch
+    {
+        UiDesign.Bridge => fancy ? "bridgefancy" : "bridge",
+        UiDesign.SciFi => fancy ? "fancy" : "scifi",
+        _ => fancy ? "fancy" : "classic"
+    };
 
     // During start-up the main window is not in Application.OpenForms yet, so the theme is applied explicitly.
     private void ApplyThemeToWindows()
@@ -367,12 +412,13 @@ public sealed partial class MainForm
         if (!_skiaAvailable || _fancyActive)
             return;
 
-        if (_design != UiDesign.SciFi)
+        // Classic has no dashboard of its own: the Fancy dashboard comes with the Sci-Fi design
+        if (_design == UiDesign.Classic)
             ApplyDesign(UiDesign.SciFi, false);
 
         _fancyActive = true;
         _fancyItem.Checked = true;
-        _settings.SetValue("design", "fancy");
+        _settings.SetValue("design", DesignKey(_design, true));
 
         if (_fancy == null)
         {
@@ -382,12 +428,15 @@ public sealed partial class MainForm
         }
         _fancy.ReducedMotion = _reducedMotionItem.Checked;
         _fancy.Glow = _fancyGlowItem.Checked;
+        // Bridge Fancy is flat: no glow to switch
+        _fancyGlowItem.Enabled = _design != UiDesign.Bridge;
+        _fancy.Renderer = _design == UiDesign.Bridge ? BridgeFancyRenderer.Instance : FancyRenderer.Instance;
 
         SuspendLayout();
         mainMenu.Visible = false;
         splitContainer.Visible = false;
-        _hudHeader.Visible = false;
-        _hudStatus.Visible = false;
+        _activeHeader.Visible = false;
+        _activeStatus.Visible = false;
         if (!Controls.Contains(_fancy))
             Controls.Add(_fancy);
         _fancy.Visible = true;
@@ -417,7 +466,8 @@ public sealed partial class MainForm
 
         _fancyActive = false;
         _fancyItem.Checked = false;
-        _settings.SetValue("design", _design == UiDesign.SciFi ? "scifi" : "classic");
+        _fancyGlowItem.Enabled = true;
+        _settings.SetValue("design", DesignKey(_design, false));
 
         if (_fullscreen)
         {
@@ -431,8 +481,8 @@ public sealed partial class MainForm
         _fancy.Visible = false;
         mainMenu.Visible = true;
         splitContainer.Visible = true;
-        _hudHeader.Visible = true;
-        _hudStatus.Visible = true;
+        _activeHeader.Visible = true;
+        _activeStatus.Visible = true;
         ArrangeDocking();
         ResumeLayout(true);
         treeView.Focus();
@@ -460,23 +510,28 @@ public sealed partial class MainForm
         if (IsDisposed || _metrics == null)
             return;
 
-        bool needed = _design == UiDesign.SciFi || _fancyActive || _dumpPath != null;
+        bool needed = _design != UiDesign.Classic || _fancyActive || _dumpPath != null;
         if (!needed)
             return;
 
-        // hardware can appear later (e.g. a USB device); give its icons the Sci-Fi look too
-        if (_design == UiDesign.SciFi)
-            SciFiIcons.Apply(_root, true);
+        // hardware can appear later (e.g. a USB device); give its icons the design's look too
+        if (_design != UiDesign.Classic)
+            SciFiIcons.Apply(_root, _design == UiDesign.Bridge ? BridgeIcons : IconTint.SciFi);
 
         string ip = Server.ListenerIp;
         string web = "http://" + (ip == "+" || ip == "?" || string.IsNullOrEmpty(ip) ? "*" : ip) + ":" + Server.ListenerPort;
         DashboardModel model = _metrics.Update(_computer.Hardware, _root.Text, _unitManager.TemperatureUnit == TemperatureUnit.Fahrenheit,
                                                timer.Interval, web, _runWebServer?.Value == true);
 
-        if (_hudHeader != null && _hudHeader.Visible)
+        if (_activeHeader == _hudHeader && _hudHeader != null && _hudHeader.Visible)
         {
             _hudHeader.Model = model;
             _hudStatus.Model = model;
+        }
+        if (_activeHeader == _bridgeHeader && _bridgeHeader != null && _bridgeHeader.Visible)
+        {
+            _bridgeHeader.Model = model;
+            _bridgeStatus.Model = model;
         }
 
         if (_fancyActive)

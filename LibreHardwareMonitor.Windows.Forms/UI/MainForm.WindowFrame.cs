@@ -82,10 +82,10 @@ public sealed partial class MainForm
         };
     }
 
-    /// <summary>Attaches the drag and resize handling to the Sci-Fi header, status strip and Fancy dashboard.</summary>
-    private void AttachFrameHitTests(HudHeader header, HudStatusBar status)
+    /// <summary>Attaches the drag and resize handling to the header and status strip of a design and to the dashboard.</summary>
+    private void AttachFrameHitTests(Control header, Func<Point, bool> isOnButton, Control status)
     {
-        HitTestPassThrough.Attach(header, p => CustomFrameActive && (InResizeBand(header, p) || !header.IsOnButton(p)));
+        HitTestPassThrough.Attach(header, p => CustomFrameActive && (InResizeBand(header, p) || !isOnButton(p)));
         HitTestPassThrough.Attach(status, p => CustomFrameActive && InResizeBand(status, p));
     }
 

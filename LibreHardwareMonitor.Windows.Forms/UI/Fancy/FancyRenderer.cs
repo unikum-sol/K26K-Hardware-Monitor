@@ -66,6 +66,16 @@ public sealed class FancyOptions
     public bool Glow { get; set; } = true;
 }
 
+/// <summary>Draws one dashboard design; the host (<see cref="FancyDashboard"/>) handles timing, caching and input.</summary>
+public interface IDashboardRenderer
+{
+    /// <summary>The area in which things move; animation frames only redraw this part.</summary>
+    SKRect MotionArea(int width, int height);
+
+    /// <summary>Renders one frame (or one layer of it). Returns the hit area of the exit button.</summary>
+    SKRect Render(SKCanvas c, int width, int height, float dpiScale, DashboardModel m, double t, FancyOptions o);
+}
+
 /// <summary>A part of the dashboard that is animated between <see cref="Start"/> and <see cref="End"/> (seconds since the update).</summary>
 public readonly struct FancyRegion
 {
@@ -87,6 +97,17 @@ public readonly struct FancyRegion
 /// </summary>
 public static class FancyRenderer
 {
+    /// <summary>The Fancy renderer for the dashboard host.</summary>
+    public static readonly IDashboardRenderer Instance = new Adapter();
+
+    private sealed class Adapter : IDashboardRenderer
+    {
+        public SKRect MotionArea(int width, int height) => FancyRenderer.MotionArea(width, height);
+
+        public SKRect Render(SKCanvas c, int width, int height, float dpiScale, DashboardModel m, double t, FancyOptions o) =>
+            FancyRenderer.Render(c, width, height, dpiScale, m, t, o);
+    }
+
     public static readonly SKColor Bg = Fui.Hex("#04100C");
     public static readonly SKColor Panel = Fui.Hex("#0A1A14");
     public static readonly SKColor Text = Fui.Hex("#D8F0E2");
@@ -120,62 +141,6 @@ public static class FancyRenderer
     private const double CoreCellDelay = 0.20, CoreCellStep = 0.012;
     private const double ThermalDelay = 0.30, ThermalStep = 0.05;
     private const double TelemetryDelay = 0.12, EnergyDelay = 0.20, CompositionDelay = 0.28, HeadroomDelay = 0.36;
-
-    /// <summary>Old and new model of one frame and the progress of every part.</summary>
-    private sealed class Tween
-    {
-        private readonly FancyOptions _o;
-        private readonly Dictionary<(double, double), DashboardModel> _models = new();
-
-        public Tween(FancyOptions o, DashboardModel next)
-        {
-            _o = o;
-            Next = next;
-            Prev = o.ReducedMotion ? null : o.Previous;
-            // shorter update intervals get shorter transitions, so they always end before the next update
-            K = Math.Max(0.25, Math.Min(1, next.UpdateIntervalMs / 1000.0));
-        }
-
-        public DashboardModel Next { get; }
-        public DashboardModel Prev { get; }
-        private double K { get; }
-        private bool On => Prev != null;
-        private bool Record => On && _o.Layer != FancyLayer.Motion;
-
-        /// <summary>Eased progress 0..1 of a part that starts after <paramref name="delay"/> seconds.</summary>
-        public double P(double delay) => On ? FancyTween.Ease((_o.SinceUpdate - delay * K) / (FancyTween.Duration * K)) : 1;
-
-        /// <summary>The model as a part shows it; list items start <paramref name="step"/> seconds apart.</summary>
-        public DashboardModel Model(double delay, double step = 0)
-        {
-            if (!On)
-                return Next;
-            if (!_models.TryGetValue((delay, step), out DashboardModel m))
-            {
-                m = FancyTween.Blend(Prev, Next, i => P(delay + Math.Max(0, i) * step));
-                _models[(delay, step)] = m;
-            }
-            return m;
-        }
-
-        /// <summary>History position for the charts: 0 right after the update, 1 when the next one is due.</summary>
-        public double Scroll => On ? Math.Min(1, _o.SinceUpdate / Math.Max(0.1, _o.ScrollPeriod)) : 1;
-
-        public double[] PrevHistory(Func<DashboardModel, double[]> pick) => On ? pick(Prev) : null;
-
-        public void Region(SKRect r, double delay, int items = 1, double step = 0)
-        {
-            if (Record)
-                _o.Regions.Add(new FancyRegion(r, delay * K, (delay + Math.Max(0, items - 1) * step + FancyTween.Duration) * K));
-        }
-
-        /// <summary>A chart that scrolls during the whole interval.</summary>
-        public void Scrolling(SKRect r)
-        {
-            if (Record)
-                _o.Regions.Add(new FancyRegion(r, 0, _o.ScrollPeriod + 0.1));
-        }
-    }
 
     private static readonly CultureInfo Inv = CultureInfo.CurrentCulture;
 
@@ -214,7 +179,7 @@ public static class FancyRenderer
         float ease = (float)(1 - Math.Pow(1 - boot, 3));
 
         bool still = o.Layer != FancyLayer.Motion;
-        var tw = new Tween(o, m);
+        var tw = new FancyTweenState(o, m);
         if (still)
             o.Regions.Clear();
         if (still)
@@ -332,7 +297,7 @@ public static class FancyRenderer
 
     // ------------------------------------------------------------------ orbital core
 
-    private static void DrawOrbital(SKCanvas c, SKRect area, float u, Tween tw, double t, FancyOptions o, float ease)
+    private static void DrawOrbital(SKCanvas c, SKRect area, float u, FancyTweenState tw, double t, FancyOptions o, float ease)
     {
         // the nodes glide one after another, the core first
         DashboardModel m = tw.Model(NodeDelay, NodeStep);
@@ -650,7 +615,7 @@ public static class FancyRenderer
 
     // ------------------------------------------------------------------ left column
 
-    private static void DrawLeftColumn(SKCanvas c, SKRect col, float u, Tween tw)
+    private static void DrawLeftColumn(SKCanvas c, SKRect col, float u, FancyTweenState tw)
     {
         DashboardModel m = tw.Model(TileDelay, TileStep);
         float y = Header(c, "HARDWARE NODES", m.Tiles.Count.ToString("00", Inv), col.Left, col.Right, col.Top, u);
@@ -900,7 +865,7 @@ public static class FancyRenderer
 
     // ------------------------------------------------------------------ right column
 
-    private static void DrawRightColumn(SKCanvas c, SKRect col, float u, Tween tw)
+    private static void DrawRightColumn(SKCanvas c, SKRect col, float u, FancyTweenState tw)
     {
         DashboardModel m = tw.Model(TelemetryDelay);
         float y = Header(c, "TELEMETRY", "", col.Left, col.Right, col.Top, u);

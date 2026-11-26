@@ -19,6 +19,7 @@ using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using LibreHardwareMonitor.Windows.Forms.UI.Bridge;
 using LibreHardwareMonitor.Windows.Forms.UI.Fancy;
 using LibreHardwareMonitor.Windows.Forms.UI.SciFi;
 using SkiaSharp;
@@ -52,7 +53,7 @@ public static class SnapshotJson
     }
 
     /// <summary>
-    /// Command line: --render-snapshot &lt;in.json&gt; &lt;out.png&gt; [--view fancy|header|status] [--size 1920x1080] [--t 6] [--scale 1] [--reduced-motion] [--no-glow]
+    /// Command line: --render-snapshot &lt;in.json&gt; &lt;out.png&gt; [--view fancy|header|status|bridge-fancy|bridge-header|bridge-status] [--size 1920x1080] [--t 6] [--scale 1] [--reduced-motion] [--no-glow]
     /// Renders a saved snapshot to a PNG file. No hardware access and no administrator rights are needed.
     /// </summary>
     public static int RenderFromCommandLine(string[] args)
@@ -82,6 +83,15 @@ public static class SnapshotJson
                 break;
             case "status":
                 HudStatusBar.Draw(canvas, width, height, scale, model);
+                break;
+            case "bridge-header":
+                BridgeHeader.Draw(canvas, width, height, scale, model, false, out _);
+                break;
+            case "bridge-status":
+                BridgeStatusBar.Draw(canvas, width, height, scale, model);
+                break;
+            case "bridge-fancy":
+                BridgeFancyRenderer.Instance.Render(canvas, width, height, scale, model, t, new FancyOptions { ReducedMotion = reduced, Glow = false, SinceOpen = t });
                 break;
             default:
                 FancyRenderer.Render(canvas, width, height, scale, model, t, new FancyOptions { ReducedMotion = reduced, Glow = glow, SinceOpen = t });

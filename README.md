@@ -3,7 +3,7 @@
 K26K Hardware Monitor is an extended version of [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor).
 It adds a **new web interface optimized for smartphones**: all sensors and charts can be viewed in the browser
 of a phone, tablet or another PC, with the same settings you configured in the desktop app.
-The desktop app itself comes with two new designs: **Sci-Fi** and an animated **Fancy** dashboard.
+The desktop app itself comes with new designs: **Sci-Fi** and **Bridge**, each with an animated **Fancy** dashboard.
 
 ## What's new?
 
@@ -18,8 +18,17 @@ The desktop app itself comes with two new designs: **Sci-Fi** and an animated **
     New values glide in one after another instead of all changing in the same frame, and the charts scroll
     continuously; the update interval from the options stays as it is.
     Options: **Reduced Motion** (follows the Windows animation setting), **Glow Effects**, **Fancy Mode in Fullscreen**.
-  - Sci-Fi and Fancy have no Windows title bar: minimize, maximize and close are drawn in the design (Sci-Fi at the
-    right of the menu row, Fancy in the top strip). The menu row, the header and the top strip move the window
+  - **Bridge**: a console look of flat color bars with rounded elbows, pill buttons and condensed lettering on
+    black. Header with live values, state and FANCY pill, sensor grid and plot in elbow frames, a status strip of
+    color blocks. All functions of the classic window stay the same, as in Sci-Fi.
+  - **Bridge Fancy** (F11, the FANCY pill or the menu while Bridge is active; **Esc** returns): the Fancy dashboard
+    with the same data and functions in the Bridge look: a stress field (the index on a perspective floor with
+    a scale, a tilted orbit per stress part whose radius is its value, a marker circling on it and streams that
+    flow into the core with the part's share), a block per device, system flow (load as fill, share of the power
+    as track thickness), core matrix, thermals, activity, telemetry, energy distribution, thermal headroom and
+    power history. It needs about as much CPU as Fancy.
+  - Sci-Fi, Bridge and both dashboards have no Windows title bar: minimize, maximize and close are drawn in the
+    design (Sci-Fi and Bridge at the right of the menu row, the dashboards in their top strip). The menu row, the header and the top strip move the window
     (drag, double click to maximize, snap), the window edges resize it.
   - **Classic**: the familiar LibreHardwareMonitor look with the Light/Dark/Black/Auto themes. With Windows
     high contrast, the first start uses Classic.
@@ -30,9 +39,16 @@ The desktop app itself comes with two new designs: **Sci-Fi** and an animated **
   <p>
     <img src="docs/images/desktop-fancy.png" alt="Fancy dashboard: orbital view with system stress in the center, hardware tiles, core matrix, telemetry, energy distribution and power history" width="800">
   </p>
+  <p>
+    <img src="docs/images/desktop-bridge.png" alt="Bridge design under full CPU load: elbow frames, colored pill menu, sensor grid with rounded meters and plot" width="800">
+  </p>
+  <p>
+    <img src="docs/images/desktop-bridge-fancy.png" alt="Bridge Fancy dashboard: device blocks in the left arm, stress field with orbits and a scale, system flow, core matrix, thermals, telemetry and power history" width="800">
+  </p>
 
-  <sub>Sci-Fi window under full CPU load (real data), Fancy dashboard with a sample load scenario.
-  How the designs were reviewed in ten rounds is documented in [docs/desktop-design-council](docs/desktop-design-council/README.md).</sub>
+  <sub>Sci-Fi and Bridge windows under full CPU load (real data), the dashboards with a sample load scenario.
+  How the designs were reviewed is documented in [docs/desktop-design-council](docs/desktop-design-council/README.md)
+  and, for Bridge, in [docs/desktop-design-council/bridge](docs/desktop-design-council/bridge/README.md).</sub>
 
 
 - **History kept after a restart** (**Options → Keep History After Restart**, on by default): the recorded sensor values
@@ -104,7 +120,7 @@ dotnet build LibreHardwareMonitor.Windows.Forms\LibreHardwareMonitor.Windows.For
 The new web interface lives in `LibreHardwareMonitor.Windows.Forms/Resources/Web/` (`index.html`, `app.js`, `app.css`),
 the API in `LibreHardwareMonitor.Windows.Forms/Utilities/WebApi.cs`.
 How the design was reviewed and refined is documented in [docs/design-council](docs/design-council/README.md).
-The desktop designs live in `UI/SciFi/`, `UI/Fancy/` and `Telemetry/`; their review is documented in
+The desktop designs live in `UI/SciFi/`, `UI/Fancy/`, `UI/Bridge/` and `Telemetry/`; their review is documented in
 [docs/desktop-design-council](docs/desktop-design-council/README.md).
 
 ## Pulling in updates from LibreHardwareMonitor
@@ -123,10 +139,15 @@ git merge upstream/master
   The MPL notices in those files are kept; section 3.3 of the MPL 2.0 allows distributing them as part of a
   larger work under the (A)GPL.
 - New K26K files (`WebApi.cs`, `Resources/Web/index.html`, `app.js`, `app.css`, `manifest.webmanifest`, `icon.svg`,
-  the desktop designs in `UI/SciFi/`, `UI/Fancy/`, `UI/Themes/SciFiTheme.cs`, `UI/MainForm.Design.cs` and `Telemetry/`)
+  the desktop designs in `UI/SciFi/`, `UI/Fancy/`, `UI/Bridge/`, `UI/Themes/SciFiTheme.cs`, `UI/Themes/BridgeTheme.cs`,
+  `UI/MainForm.Design.cs`, `UI/MainForm.Bridge.cs` and `Telemetry/`)
   are licensed under AGPL-3.0-or-later.
-- The desktop designs use [SkiaSharp](https://github.com/mono/SkiaSharp) (MIT) and the embedded font
-  [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) (SIL Open Font License 1.1).
+- The desktop designs use [SkiaSharp](https://github.com/mono/SkiaSharp) (MIT) and the embedded fonts
+  [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) and [Antonio](https://github.com/googlefonts/antonioFont)
+  (both SIL Open Font License 1.1).
+- The Bridge design is an original work: its layout, shapes, colors and texts were drawn for this project. It is
+  not affiliated with or endorsed by any film or television production and uses none of their artwork, logos,
+  names or fonts.
 - Further third-party notices: [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
 
 The web interface links to the source code (AGPL section 13).

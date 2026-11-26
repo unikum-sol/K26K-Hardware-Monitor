@@ -40,6 +40,16 @@ public sealed class CaptionPalette
     public SKColor Background { get; set; }
     public SKColor Rule { get; set; }
 
+    /// <summary>Rounded pill buttons in flat colors (Bridge) instead of thin glyphs in cells.</summary>
+    public bool Pills { get; set; }
+    public SKColor PillMinimize { get; set; }
+    public SKColor PillMaximize { get; set; }
+    public SKColor PillClose { get; set; }
+    public SKColor PillInactive { get; set; }
+
+    /// <summary>The palette of the active design, used by the window buttons in the menu row.</summary>
+    public static CaptionPalette Current { get; set; }
+
     public static readonly CaptionPalette SciFi = new()
     {
         Glyph = Fui.Hex("#00C8D0"),
@@ -49,6 +59,11 @@ public sealed class CaptionPalette
         Background = Fui.Hex("#050810"),
         Rule = Fui.Hex("#2C4A5C")
     };
+
+    static CaptionPalette()
+    {
+        Current = SciFi;
+    }
 }
 
 /// <summary>Draws the window buttons and sends their commands to the window.</summary>
@@ -67,6 +82,12 @@ public static class CaptionChrome
     /// <summary>Draws one button: a thin glyph, on hover a tinted cell with an accent line (close: the alarm color).</summary>
     public static void Draw(SKCanvas c, SKRect r, WindowButton kind, bool maximized, bool hot, bool pressed, bool active, CaptionPalette p, float k)
     {
+        if (p.Pills)
+        {
+            DrawPill(c, r, kind, maximized, hot, pressed, active, p, k);
+            return;
+        }
+
         bool close = kind == WindowButton.Close;
         SKColor glyph = active ? p.Glyph : p.GlyphInactive;
         if (hot || pressed)
@@ -116,6 +137,54 @@ public static class CaptionChrome
                 Fui.Brackets(c, frame, 3.5f * k, glyph, w);
                 break;
             }
+            default:
+                pen.StrokeCap = SKStrokeCap.Round;
+                c.DrawLine(cx - s, cy - s, cx + s, cy + s, pen);
+                c.DrawLine(cx - s, cy + s, cx + s, cy - s, pen);
+                break;
+        }
+    }
+
+    /// <summary>A flat rounded pill in the button's own color with a dark glyph; brighter on hover, darker when pressed.</summary>
+    private static void DrawPill(SKCanvas c, SKRect r, WindowButton kind, bool maximized, bool hot, bool pressed, bool active, CaptionPalette p, float k)
+    {
+        SKColor tone = !active && !hot ? p.PillInactive : kind switch
+        {
+            WindowButton.Minimize => p.PillMinimize,
+            WindowButton.Maximize => p.PillMaximize,
+            _ => p.PillClose
+        };
+        if (pressed)
+            tone = Fui.Mix(tone, SKColors.Black, 0.25f);
+        else if (hot)
+            tone = Fui.Mix(tone, SKColors.White, 0.3f);
+
+        var pill = new SKRect(r.Left + 3 * k, r.Top + 5 * k, r.Right - 3 * k, r.Bottom - 5 * k);
+        float radius = pill.Height / 2;
+        using (SKPaint fill = Fui.Fill(tone))
+            c.DrawRoundRect(pill, radius, radius, fill);
+
+        float cx = (float)Math.Floor(pill.MidX) + 0.5f;
+        float cy = (float)Math.Floor(pill.MidY) + 0.5f;
+        float s = (float)Math.Round(4 * k);
+        using SKPaint pen = Fui.Stroke(p.Background, Math.Max(1.5f, (float)Math.Round(3 * k) / 2));
+        pen.StrokeCap = SKStrokeCap.Square;
+        switch (kind)
+        {
+            case WindowButton.Minimize:
+                c.DrawLine(cx - s, cy + s * 0.5f, cx + s, cy + s * 0.5f, pen);
+                break;
+            case WindowButton.Maximize when maximized:
+            {
+                float o = (float)Math.Round(2 * k);
+                c.DrawRect(new SKRect(cx - s, cy - s + o, cx + s - o, cy + s), pen);
+                c.DrawLine(cx - s + o, cy - s, cx + s, cy - s, pen);
+                c.DrawLine(cx + s, cy - s, cx + s, cy + s - o, pen);
+                break;
+            }
+            case WindowButton.Maximize:
+                c.DrawRect(new SKRect(cx - s, cy - s, cx + s, cy + s), pen);
+                break;
             default:
                 pen.StrokeCap = SKStrokeCap.Round;
                 c.DrawLine(cx - s, cy - s, cx + s, cy + s, pen);
@@ -242,11 +311,12 @@ internal sealed class CaptionButtonItem : ToolStripItem
             Color back = LibreHardwareMonitor.Windows.Forms.UI.Themes.Theme.Current.MenuBackgroundColor;
             c.Clear(new SKColor(back.R, back.G, back.B));
             float k = (Owner?.DeviceDpi ?? 96) / 96f;
-            CaptionChrome.Draw(c, new SKRect(0, 0, w, h), Kind, _maximized, _hot, _pressed, _active, CaptionPalette.SciFi, k);
+            CaptionPalette palette = CaptionPalette.Current;
+            CaptionChrome.Draw(c, new SKRect(0, 0, w, h), Kind, _maximized, _hot, _pressed, _active, palette, k);
             // a short rule in front of the group separates it from the menu
-            if (Kind == WindowButton.Minimize && !_hot && !_pressed)
+            if (Kind == WindowButton.Minimize && !_hot && !_pressed && !palette.Pills)
             {
-                using SKPaint sep = Fui.Stroke(CaptionPalette.SciFi.Rule, Math.Max(1, (float)Math.Round(k)));
+                using SKPaint sep = Fui.Stroke(palette.Rule, Math.Max(1, (float)Math.Round(k)));
                 c.DrawLine(0.5f, h * 0.25f, 0.5f, h * 0.75f, sep);
             }
             c.Flush();

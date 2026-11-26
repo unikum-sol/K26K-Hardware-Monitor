@@ -197,6 +197,13 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
 
         // K26K: autoscaled value axes never zoom below a sensible span (noise must not look like a jump)
         public virtual bool PlotMinimumSpans => false;
+        /// <summary>K26K: the thin frame around the plot legend (Bridge sets the legend on a plain block instead).</summary>
+        public virtual bool PlotLegendBorder => true;
+        /// <summary>K26K: distance of the scroll thumb from the edges of its 8 px strip (Bridge: a wider thumb).</summary>
+        public virtual int ScrollbarThumbInset => 2;
+        /// <summary>K26K: shortest scroll thumb in pixels at 96 DPI (0 = strictly proportional).</summary>
+        public virtual int ScrollbarThumbMinLength => 0;
+        public virtual Color PlotLegendBackgroundColor => PlotBackgroundColor;
         public abstract Color BackgroundColor { get; }
         public abstract Color ForegroundColor { get; }
         public abstract Color HyperlinkColor { get; }
