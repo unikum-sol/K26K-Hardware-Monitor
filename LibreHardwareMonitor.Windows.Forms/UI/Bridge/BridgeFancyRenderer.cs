@@ -33,13 +33,18 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Bridge;
 /// hardware blocks in its arm and three columns: the stress gauge with the system flow, the core and
 /// thermal view, and the telemetry with the power scope.
 /// </summary>
-public static class BridgeFancyRenderer
+public static partial class BridgeFancyRenderer
 {
     public static readonly IDashboardRenderer Instance = new Renderer();
 
     private sealed class Renderer : IDashboardRenderer
     {
-        public SKRect MotionArea(int width, int height) => Layout.Of(width, height).Flow;
+        public SKRect MotionArea(int width, int height)
+        {
+            // the stress field and the flow tracks move; both sit in the first column
+            Layout l = Layout.Of(width, height);
+            return new SKRect(Math.Min(l.Stress.Left, l.Flow.Left), l.Stress.Top, Math.Max(l.Stress.Right, l.Flow.Right), l.Flow.Bottom);
+        }
 
         public SKRect Render(SKCanvas c, int width, int height, float dpiScale, DashboardModel m, double t, FancyOptions o) =>
             BridgeFancyRenderer.Render(c, width, height, m, t, o);
@@ -71,7 +76,7 @@ public static class BridgeFancyRenderer
     private readonly struct Layout
     {
         public readonly float U, Margin, Arm, Gap;
-        public readonly SKRect Upper, Lower, Col1, Col2, Col3, Flow, Gauge;
+        public readonly SKRect Upper, Lower, Col1, Col2, Col3, Flow, Gauge, Stress;
         public readonly float UpperBar, LowerTopBar, LowerBottomBar, TopElbowH, BottomElbowH;
 
         private Layout(int w, int h)
@@ -105,6 +110,12 @@ public static class BridgeFancyRenderer
             float micro = Math.Max(14f, 13.5f * u), small = Math.Max(15f, 14.5f * u);
             float flowTop = Gauge.Bottom + micro + 14 * u + 2 * CompositionRow(u, small, micro) + micro + 22 * u;
             Flow = new SKRect(Col1.Left - 4 * u, flowTop, Col1.Right + 4 * u, Col1.Bottom + 4 * u);
+            // the stress panel (text column and stress field) fills the column above the flow
+            // (at least 380 units high, at most 62 % of the column; the flow takes the rest)
+            float stressBottom = Math.Min(Col1.Top + Col1.Height * 0.62f, Math.Max(flowTop - 16 * u, Col1.Top + 380 * u));
+            Stress = new SKRect(Col1.Left, Col1.Top, Col1.Right, stressBottom);
+            if (stressBottom + 16 * u > flowTop)
+                Flow = new SKRect(Flow.Left, stressBottom + 16 * u, Flow.Right, Flow.Bottom);
         }
 
         public static Layout Of(int w, int h) => new(w, h);
@@ -124,7 +135,10 @@ public static class BridgeFancyRenderer
         if (o.Layer == FancyLayer.Motion)
         {
             if (!o.ReducedMotion)
+            {
+                DrawStress(c, l, tw, t, o, 1, true);
                 DrawFlow(c, l, tw, t, o, true);
+            }
             return SKRect.Empty;
         }
 
@@ -142,7 +156,7 @@ public static class BridgeFancyRenderer
             c.SaveLayer(fade);
         }
         DrawBlocks(c, l, tw);
-        DrawGauge(c, l, tw, ease);
+        DrawStress(c, l, tw, t, o, ease, false);
         DrawFlow(c, l, tw, t, o, false);
         DrawCoreColumn(c, l, tw);
         DrawTelemetryColumn(c, l, tw);
@@ -420,75 +434,6 @@ public static class BridgeFancyRenderer
     }
 
     // ------------------------------------------------------------------ column 1: stress gauge, composition, flow
-
-    private static void DrawGauge(SKCanvas c, Layout l, FancyTweenState tw, float ease)
-    {
-        float u = l.U;
-        DashboardModel m = tw.Model(GaugeDelay);
-        SKRect g = l.Gauge;
-        SKColor col = StateColor(m.State);
-
-        float y = Header(c, "SYSTEM STRESS", "INDEX 0 TO 100", g.Left, g.Right, g.Top, u, Accent);
-        float radius = Math.Min(g.Width * 0.42f, g.Bottom - y - 10 * u);
-        var center = new SKPoint(g.MidX, g.Bottom - 6 * u);
-        float thick = Math.Max(14, 24 * u);
-        float rMid = radius - thick / 2;
-
-        // a half ring of rounded segments, lit up to the stress index
-        const int segments = 20;
-        double lit = Math.Max(0, Math.Min(100, m.Stress)) / 100 * segments * ease;
-        for (int i = 0; i < segments; i++)
-        {
-            float start = 180 + i * 180f / segments + 1.4f, sweep = 180f / segments - 2.8f;
-            double f = Math.Max(0, Math.Min(1, lit - i));
-            using SKPaint track = Fui.Stroke(Fui.Hex("#2E2822"), thick);
-            DrawArc(c, center, rMid, start, sweep, track);
-            if (f > 0)
-            {
-                using SKPaint on = Fui.Stroke(col, thick);
-                DrawArc(c, center, rMid, start, (float)(sweep * f), on);
-            }
-        }
-        // scale ends and the number in the middle
-        Label(c, "0", center.X - rMid, center.Y + Micro(u) + 4 * u, Micro(u), Dim, Regular, SKTextAlign.Center);
-        Label(c, "100", center.X + rMid, center.Y + Micro(u) + 4 * u, Micro(u), Dim, Regular, SKTextAlign.Center);
-        float numberSize = Math.Max(30, radius * 0.62f);
-        Label(c, m.Stress.ToString("0", Inv), center.X, center.Y - radius * 0.27f, numberSize, col, Bold, SKTextAlign.Center);
-        string state = SystemMetrics.StateLabel(m.State);
-        float sw = Measure(state, Small(u), Bold, 1.2f * u) + 30 * u;
-        var pill = new SKRect(center.X - sw / 2, center.Y - radius * 0.18f, center.X + sw / 2, center.Y - radius * 0.18f + Small(u) + 12 * u);
-        Pill(c, pill, col);
-        Label(c, state, pill.MidX, pill.Bottom - 6 * u - Small(u) * 0.12f, Small(u), Bg, Bold, SKTextAlign.Center, 1.2f * u);
-        tw.Region(new SKRect(g.Left - 2 * u, g.Top, g.Right + 2 * u, g.Bottom + Micro(u) + 8 * u), GaugeDelay);
-
-        // the four parts of the index, two per row: name, meaning, weight, the part (0 to 100) and a meter
-        m = tw.Model(CompositionDelay);
-        var parts = new[]
-        {
-            ("LOAD", "MAX OF CPU AND GPU", StressWeights.Load, m.StressLoad, Blue),
-            ("HEAT", "SHARE OF THE LIMIT", StressWeights.Heat, m.StressHeat, Data),
-            ("MEMORY", "RAM IN USE", StressWeights.Memory, m.StressMemory, Peach),
-            ("FANS", "FAN EFFORT", StressWeights.Fans, m.StressFans, Lilac)
-        };
-        float top = g.Bottom + Micro(u) + 14 * u;
-        float rowH = Layout.CompositionRow(u, Small(u), Micro(u));
-        float half = (g.Width - 28 * u) / 2;
-        for (int i = 0; i < parts.Length; i++)
-        {
-            var (label, meaning, weight, value, color) = parts[i];
-            float px = g.Left + (i % 2) * (half + 28 * u), py = top + (i / 2) * rowH;
-            float ly = py + Small(u);
-            float lw = Label(c, label, px, ly, Small(u), color, Bold, spacing: 1 * u);
-            Label(c, "WEIGHT " + weight.ToString("0.00", CultureInfo.InvariantCulture), px + lw + 8 * u, ly, Micro(u), Dim, SemiBold);
-            Label(c, value.ToString("0", Inv) + " / 100", px + half, ly, Small(u), Text, SemiBold, SKTextAlign.Right);
-            float my = ly + 6 * u;
-            Meter(c, new SKRect(px, my, px + half, my + 5 * u), value / 100, color, Track);
-            Label(c, meaning, px, my + 5 * u + Micro(u) + 2 * u, Micro(u), Dim, SemiBold, spacing: 0.4f * u);
-        }
-        float fy = top + 2 * rowH + Micro(u) + 2 * u;
-        Label(c, "INDEX = SUM OF WEIGHT × PART, AT LEAST " + (StressWeights.Floor * 100).ToString("0", Inv) + "% OF MAX(LOAD, HEAT)", g.Left, fy, Micro(u), Dim, SemiBold, spacing: 0.4f * u);
-        tw.Region(new SKRect(g.Left - 2 * u, top - 4 * u, g.Right + 2 * u, fy + 6 * u), CompositionDelay);
-    }
 
     // One track per hardware node: the lit part is the load, the track gets thicker with the share of the power.
     // In the motion layer a short bright segment runs along the lit part, faster with more load.
