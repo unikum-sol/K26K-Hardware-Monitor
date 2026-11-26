@@ -52,7 +52,7 @@ namespace Aga.Controls.Tree
 			}
 		}
 
-		internal int ColumnHeaderHeight
+		public int ColumnHeaderHeight
 		{
 			get
 			{

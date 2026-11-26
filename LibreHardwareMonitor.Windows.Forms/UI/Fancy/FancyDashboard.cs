@@ -44,6 +44,7 @@ public sealed class FancyDashboard : SkiaView
     private bool _hasModel;
     private double _arrivedAt;
     private double _period;
+    private IDashboardRenderer _renderer = FancyRenderer.Instance;
 
     // a part gets a few more frames after its transition, so it surely ends on the exact new value
     private const double SettleSeconds = 0.08;
@@ -65,7 +66,7 @@ public sealed class FancyDashboard : SkiaView
                 Invalidate();
                 return;
             }
-            Invalidate(ToRectangle(FancyRenderer.MotionArea(ClientSize.Width, ClientSize.Height)));
+            Invalidate(ToRectangle(_renderer.MotionArea(ClientSize.Width, ClientSize.Height)));
             // the parts that are gliding to new values or scrolling right now
             double since = _clock.Elapsed.TotalSeconds - _arrivedAt;
             foreach (FancyRegion region in _options.Regions)
@@ -74,6 +75,20 @@ public sealed class FancyDashboard : SkiaView
                     Invalidate(ToRectangle(region.Rect));
             }
         };
+    }
+
+    /// <summary>The design that draws the dashboard (Fancy or Bridge Fancy); everything else stays the same.</summary>
+    public IDashboardRenderer Renderer
+    {
+        get => _renderer;
+        set
+        {
+            if (value == null || value == _renderer)
+                return;
+            _renderer = value;
+            _cacheDirty = true;
+            Invalidate();
+        }
     }
 
     public bool ReducedMotion
@@ -253,7 +268,7 @@ public sealed class FancyDashboard : SkiaView
         if (!ReducedMotion && _options.SinceOpen < BootSeconds)
         {
             _options.Layer = FancyLayer.All;
-            _exit = FancyRenderer.Render(canvas, width, height, scale, _model, now, _options);
+            _exit = _renderer.Render(canvas, width, height, scale, _model, now, _options);
             _cacheDirty = true;
             return;
         }
@@ -269,7 +284,7 @@ public sealed class FancyDashboard : SkiaView
         {
             using var cacheCanvas = new SKCanvas(_cache);
             _options.Layer = FancyLayer.Static;
-            _exit = FancyRenderer.Render(cacheCanvas, width, height, scale, _model, now, _options);
+            _exit = _renderer.Render(cacheCanvas, width, height, scale, _model, now, _options);
             _cacheDirty = false;
         }
         else if (!ReducedMotion)
@@ -286,7 +301,7 @@ public sealed class FancyDashboard : SkiaView
                 using var cacheCanvas = new SKCanvas(_cache);
                 cacheCanvas.ClipPath(clip);
                 _options.Layer = FancyLayer.Static;
-                _exit = FancyRenderer.Render(cacheCanvas, width, height, scale, _model, now, _options);
+                _exit = _renderer.Render(cacheCanvas, width, height, scale, _model, now, _options);
             }
         }
 
@@ -295,7 +310,7 @@ public sealed class FancyDashboard : SkiaView
         if (!ReducedMotion)
         {
             _options.Layer = FancyLayer.Motion;
-            FancyRenderer.Render(canvas, width, height, scale, _model, now, _options);
+            _renderer.Render(canvas, width, height, scale, _model, now, _options);
         }
     }
 

@@ -39,7 +39,8 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
 
         protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
         {
-            e.TextColor = e.Item.Selected ? Theme.Current.MenuSelectedForegroundColor : Theme.Current.MenuForegroundColor;
+            e.TextColor = (Theme.Current as IMenuItemPainter)?.MenuItemTextColor(e.Item)
+                          ?? (e.Item.Selected ? Theme.Current.MenuSelectedForegroundColor : Theme.Current.MenuForegroundColor);
             base.OnRenderItemText(e);
         }
 
@@ -62,6 +63,9 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
 
         protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
         {
+            if (Theme.Current is IMenuItemPainter painter && painter.PaintMenuItemBackground(e))
+                return;
+
             Rectangle bounds = new(Point.Empty, e.Item.Size);
 
             using (Brush brush = new SolidBrush(e.Item.Selected ? Theme.Current.MenuSelectedBackgroundColor : Theme.Current.MenuBackgroundColor))

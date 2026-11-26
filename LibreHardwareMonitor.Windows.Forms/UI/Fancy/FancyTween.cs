@@ -19,6 +19,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using LibreHardwareMonitor.Windows.Forms.Telemetry;
+using SkiaSharp;
 
 namespace LibreHardwareMonitor.Windows.Forms.UI.Fancy;
 
@@ -132,5 +133,61 @@ public static class FancyTween
         }
 
         return next.Select((v, i) => (i / (double)(n - 1), v)).ToArray();
+    }
+}
+
+/// <summary>Old and new model of one frame and the progress of every part.</summary>
+internal sealed class FancyTweenState
+{
+    private readonly FancyOptions _o;
+    private readonly Dictionary<(double, double), DashboardModel> _models = new();
+
+    public FancyTweenState(FancyOptions o, DashboardModel next)
+    {
+        _o = o;
+        Next = next;
+        Prev = o.ReducedMotion ? null : o.Previous;
+        // shorter update intervals get shorter transitions, so they always end before the next update
+        K = Math.Max(0.25, Math.Min(1, next.UpdateIntervalMs / 1000.0));
+    }
+
+    public DashboardModel Next { get; }
+    public DashboardModel Prev { get; }
+    private double K { get; }
+    private bool On => Prev != null;
+    private bool Record => On && _o.Layer != FancyLayer.Motion;
+
+    /// <summary>Eased progress 0..1 of a part that starts after <paramref name="delay"/> seconds.</summary>
+    public double P(double delay) => On ? FancyTween.Ease((_o.SinceUpdate - delay * K) / (FancyTween.Duration * K)) : 1;
+
+    /// <summary>The model as a part shows it; list items start <paramref name="step"/> seconds apart.</summary>
+    public DashboardModel Model(double delay, double step = 0)
+    {
+        if (!On)
+            return Next;
+        if (!_models.TryGetValue((delay, step), out DashboardModel m))
+        {
+            m = FancyTween.Blend(Prev, Next, i => P(delay + Math.Max(0, i) * step));
+            _models[(delay, step)] = m;
+        }
+        return m;
+    }
+
+    /// <summary>History position for the charts: 0 right after the update, 1 when the next one is due.</summary>
+    public double Scroll => On ? Math.Min(1, _o.SinceUpdate / Math.Max(0.1, _o.ScrollPeriod)) : 1;
+
+    public double[] PrevHistory(Func<DashboardModel, double[]> pick) => On ? pick(Prev) : null;
+
+    public void Region(SKRect r, double delay, int items = 1, double step = 0)
+    {
+        if (Record)
+            _o.Regions.Add(new FancyRegion(r, delay * K, (delay + Math.Max(0, items - 1) * step + FancyTween.Duration) * K));
+    }
+
+    /// <summary>A chart that scrolls during the whole interval.</summary>
+    public void Scrolling(SKRect r)
+    {
+        if (Record)
+            _o.Regions.Add(new FancyRegion(r, 0, _o.ScrollPeriod + 0.1));
     }
 }

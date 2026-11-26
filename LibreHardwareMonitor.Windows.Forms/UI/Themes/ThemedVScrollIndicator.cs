@@ -106,8 +106,17 @@ namespace LibreHardwareMonitor.Windows.Forms.UI.Themes
             {
                 int start = height * (_scrollbar.Value - _scrollbar.Minimum) / range;
                 int end = height * (_scrollbar.Value - _scrollbar.Minimum + _scrollbar.LargeChange) / range;
+                // a theme may ask for a minimum length; the thumb then keeps its position along the track
+                int min = Theme.Current.ScrollbarThumbMinLength * DeviceDpi / 96;
+                if (min > 0 && end - start < min && height > min)
+                {
+                    int maxStart = height - min;
+                    int scrollable = System.Math.Max(1, range - _scrollbar.LargeChange + 1);
+                    start = maxStart * System.Math.Min(scrollable, _scrollbar.Value - _scrollbar.Minimum) / scrollable;
+                    end = start + min;
+                }
                 using (SolidBrush brush = new SolidBrush(Theme.Current.ScrollbarTrack))
-                    g.FillRectangle(brush, new Rectangle(2, start, Bounds.Width - 4, end - start));
+                    g.FillRectangle(brush, new Rectangle(Theme.Current.ScrollbarThumbInset, start, Bounds.Width - 2 * Theme.Current.ScrollbarThumbInset, end - start));
             }
         }
     }

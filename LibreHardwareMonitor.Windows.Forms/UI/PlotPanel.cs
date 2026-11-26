@@ -159,8 +159,8 @@ public class PlotPanel : UserControl
                 _legend.LegendColumnSpacing = 18 * _dpiXScale;
                 _legend.LegendMargin = 6 * _dpiXScale;
             }
-            _legend.LegendBackground = Theme.Current.PlotBackgroundColor.ToOxyColor();
-            _legend.LegendBorder = OxyColor.FromAColor(110, Theme.Current.HyperlinkColor.ToOxyColor());
+            _legend.LegendBackground = Theme.Current.PlotLegendBackgroundColor.ToOxyColor();
+            _legend.LegendBorder = Theme.Current.PlotLegendBorder ? OxyColor.FromAColor(110, Theme.Current.HyperlinkColor.ToOxyColor()) : OxyColors.Undefined;
             _legend.LegendTextColor = Theme.Current.ForegroundColor.ToOxyColor();
             _model.IsLegendVisible = true;
         }

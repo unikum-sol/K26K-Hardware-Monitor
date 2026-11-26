@@ -26,13 +26,18 @@ using SkiaSharp;
 namespace LibreHardwareMonitor.Windows.Forms.UI.Design;
 
 /// <summary>
-/// Loads JetBrains Mono (SIL Open Font License, see Resources/Fonts/OFL.txt) from the embedded resources.
+/// Loads JetBrains Mono (SIL Open Font License, see Resources/Fonts/OFL.txt) and Antonio (the lettering of the
+/// Bridge design, SIL Open Font License, see Resources/Fonts/Antonio-OFL.txt) from the embedded resources.
 /// GDI+ uses a PrivateFontCollection, GDI (TextRenderer, used by the tree) needs AddFontMemResourceEx,
 /// and Skia gets typefaces from the same bytes.
 /// </summary>
 public static class FontManager
 {
     public const string FamilyName = "JetBrains Mono";
+    public const string BridgeFamilyName = "Antonio";
+
+    /// <summary>Skia weights of the Bridge lettering, for <see cref="Typeface"/>.</summary>
+    public const string BridgeRegular = "Antonio-Regular", BridgeSemiBold = "Antonio-SemiBold", BridgeBold = "Antonio-Bold";
 
     private const string ResourcePrefix = "LibreHardwareMonitor.Windows.Forms.Resources.Fonts.";
 
@@ -42,7 +47,7 @@ public static class FontManager
     private static PrivateFontCollection _collection;
     private static bool _loaded;
 
-    /// <summary>Regular, Medium or Bold.</summary>
+    /// <summary>Regular, Medium or Bold (JetBrains Mono), or one of the Bridge weights (Antonio).</summary>
     public static SKTypeface Typeface(string weight = "Regular")
     {
         EnsureLoaded();
@@ -51,9 +56,12 @@ public static class FontManager
             if (Typefaces.TryGetValue(weight, out SKTypeface typeface))
                 return typeface;
 
+            bool bridge = weight.StartsWith(BridgeFamilyName, StringComparison.Ordinal);
             typeface = Bytes.TryGetValue(weight, out byte[] data)
                 ? SKTypeface.FromStream(new MemoryStream(data))
-                : SKTypeface.FromFamilyName("Consolas");
+                : bridge
+                    ? SKTypeface.FromFamilyName("Bahnschrift", weight == BridgeRegular ? SKFontStyleWeight.Normal : SKFontStyleWeight.Bold, SKFontStyleWidth.Condensed, SKFontStyleSlant.Upright)
+                    : SKTypeface.FromFamilyName("Consolas");
 
             Typefaces[weight] = typeface;
             return typeface;
@@ -63,9 +71,28 @@ public static class FontManager
     /// <summary>A GDI+ font of the embedded family; falls back to Consolas if the font could not be loaded.</summary>
     public static Font CreateFont(float sizeInPoints, FontStyle style = FontStyle.Regular)
     {
+        return CreateFont(FamilyName, "Consolas", sizeInPoints, style);
+    }
+
+    /// <summary>A GDI+ font of the Bridge lettering (Antonio); falls back to Bahnschrift.</summary>
+    public static Font CreateBridgeFont(float sizeInPoints, FontStyle style = FontStyle.Regular)
+    {
+        return CreateFont(BridgeFamilyName, "Bahnschrift", sizeInPoints, style);
+    }
+
+    private static Font CreateFont(string name, string fallback, float sizeInPoints, FontStyle style)
+    {
         EnsureLoaded();
-        FontFamily family = _collection?.Families.Length > 0 ? _collection.Families[0] : new FontFamily("Consolas");
-        return new Font(family, sizeInPoints, style, GraphicsUnit.Point);
+        FontFamily family = null;
+        if (_collection != null)
+        {
+            foreach (FontFamily f in _collection.Families)
+            {
+                if (f.Name == name)
+                    family = f;
+            }
+        }
+        return new Font(family ?? new FontFamily(fallback), sizeInPoints, style, GraphicsUnit.Point);
     }
 
     private static void EnsureLoaded()
@@ -79,9 +106,10 @@ public static class FontManager
             _collection = new PrivateFontCollection();
             Assembly assembly = typeof(FontManager).Assembly;
 
-            foreach (string weight in new[] { "Regular", "Medium", "Bold" })
+            foreach (string weight in new[] { "Regular", "Medium", "Bold", BridgeRegular, BridgeSemiBold, BridgeBold })
             {
-                using Stream stream = assembly.GetManifestResourceStream(ResourcePrefix + "JetBrainsMono-" + weight + ".ttf");
+                string file = weight.StartsWith(BridgeFamilyName, StringComparison.Ordinal) ? weight : "JetBrainsMono-" + weight;
+                using Stream stream = assembly.GetManifestResourceStream(ResourcePrefix + file + ".ttf");
                 if (stream == null)
                     continue;
 
